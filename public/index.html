@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GameSwap - ゲーム交換サイト</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ナビゲーション -->
+<nav class="navbar">
+  <span class="navbar-brand">🎮 GameSwap</span>
+
+  <div class="navbar-search">
+    <span class="search-icon">🔍</span>
+    <input type="text" placeholder="交換したいゲーム名を検索..." id="searchInput" />
+  </div>
+
+  <div class="navbar-right">
+    <!-- 通知ボタン（未ログイン時はグレーアウト） -->
+    <button class="icon-btn" id="notifBtn" title="通知" onclick="requireLogin()">
+      🔔
+      <span class="badge" id="notifBadge" style="display:none">0</span>
+    </button>
+    <!-- ハンバーガーメニュー -->
+    <button class="icon-btn" id="menuBtn" title="メニュー">☰</button>
+  </div>
+</nav>
+
+<!-- サイドメニューオーバーレイ -->
+<div class="side-menu-overlay" id="menuOverlay" onclick="closeMenu()"></div>
+
+<!-- サイドメニュー -->
+<div class="side-menu" id="sideMenu">
+  <div class="menu-header">メニュー</div>
+  <a href="/index.html"><span class="menu-icon">🏠</span> トップ</a>
+  <a href="/home.html"><span class="menu-icon">🔍</span> アイテム一覧</a>
+  <a href="/post-item.html"><span class="menu-icon">📦</span> 出品する</a>
+  <a href="/messages.html"><span class="menu-icon">💬</span> メッセージ</a>
+  <a href="/notifications.html"><span class="menu-icon">🔔</span> 通知</a>
+  <a href="/profile.html"><span class="menu-icon">👤</span> マイページ</a>
+  <div style="flex:1"></div>
+  <button class="menu-link" id="logoutBtn" onclick="logout()" style="display:none; color:var(--danger)">
+    <span class="menu-icon">🚪</span> ログアウト
+  </button>
+</div>
+
+<!-- メインコンテンツ -->
+<main class="container">
+
+  <!-- 注意事項 -->
+  <div class="notice-card">
+    <h2>⚠️ ご利用にあたっての注意事項</h2>
+    <ul>
+      <li>本サービスはユーザー同士がゲームソフト・カード・グッズなどを<strong>無償で交換</strong>するプラットフォームです。金銭のやり取りは禁止しています。</li>
+      <li>交換相手との取引は<strong>当事者間の責任</strong>で行ってください。トラブルが発生した場合、運営は一切の責任を負いません。</li>
+      <li>違法コピー品・模造品・権利侵害品の出品は<strong>厳禁</strong>です。発覚した場合はアカウントを停止します。</li>
+      <li>個人情報（住所・電話番号など）の取り扱いには十分ご注意ください。DMでのやり取りも自己責任でお願いします。</li>
+      <li>他ユーザーへの嫌がらせ・誹謗中傷・迷惑行為は禁止です。報告を受けた場合は対応します。</li>
+      <li>ご利用は<strong>18歳以上</strong>を推奨します。保護者の方は未成年のご利用状況にご注意ください。</li>
+    </ul>
+  </div>
+
+  <!-- 認証カード -->
+  <div class="auth-card">
+    <h1>🎮 GameSwap</h1>
+
+    <!-- タブ切り替え -->
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchTab('login')">ログイン</div>
+      <div class="auth-tab" onclick="switchTab('register')">新規登録</div>
+    </div>
+
+    <!-- ログインフォーム -->
+    <form class="auth-form active" id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label>メールアドレス</label>
+        <input type="email" id="loginEmail" placeholder="example@mail.com" required />
+      </div>
+      <div class="form-group">
+        <label>パスワード</label>
+        <input type="password" id="loginPassword" placeholder="パスワード" required />
+      </div>
+      <div class="error-msg" id="loginError"></div>
+      <button type="submit" class="btn btn-primary">ログイン</button>
+      <div class="divider">または</div>
+      <button type="button" class="btn btn-google" onclick="loginWithGoogle()">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Googleでログイン
+      </button>
+    </form>
+
+    <!-- 新規登録フォーム -->
+    <form class="auth-form" id="registerForm" onsubmit="handleRegister(event)">
+      <div class="form-group">
+        <label>ユーザー名</label>
+        <input type="text" id="regUsername" placeholder="ニックネーム" required minlength="2" />
+      </div>
+      <div class="form-group">
+        <label>メールアドレス</label>
+        <input type="email" id="regEmail" placeholder="example@mail.com" required />
+      </div>
+      <div class="form-group">
+        <label>パスワード（6文字以上）</label>
+        <input type="password" id="regPassword" placeholder="パスワード" required minlength="6" />
+      </div>
+      <div class="error-msg" id="registerError"></div>
+      <div class="success-msg" id="registerSuccess"></div>
+      <button type="submit" class="btn btn-primary">アカウント作成</button>
+      <div class="divider">または</div>
+      <button type="button" class="btn btn-google" onclick="loginWithGoogle()">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Googleで登録
+      </button>
+    </form>
+  </div>
+
+</main>
+
+<script src="/js/auth.js"></script>
+<script>
+  // URLパラメータにtokenがあればGoogle OAuth後リダイレクト
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('token')) {
+    localStorage.setItem('token', params.get('token'));
+    window.location.href = '/home.html';
+  }
+
+  // タブ切り替え
+  function switchTab(tab) {
+    document.querySelectorAll('.auth-tab').forEach((el, i) => {
+      el.classList.toggle('active', (tab === 'login' ? i === 0 : i === 1));
+    });
+    document.getElementById('loginForm').classList.toggle('active', tab === 'login');
+    document.getElementById('registerForm').classList.toggle('active', tab === 'register');
+  }
+
+  // サイドメニュー
+  document.getElementById('menuBtn').addEventListener('click', () => {
+    document.getElementById('sideMenu').classList.add('open');
+    document.getElementById('menuOverlay').classList.add('open');
+  });
+  function closeMenu() {
+    document.getElementById('sideMenu').classList.remove('open');
+    document.getElementById('menuOverlay').classList.remove('open');
+  }
+
+  function requireLogin() { alert('ログインが必要です'); }
+  function loginWithGoogle() { window.location.href = '/auth/google'; }
+
+  // 既にログイン済みならhomeへ
+  if (localStorage.getItem('token')) window.location.href = '/home.html';
+</script>
+</body>
+</html>
