@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameTrade - ホーム</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="/home.html" class="logo">🎮 GameTrade</a>
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="ゲーム名・カード名で検索…" onkeydown="if(event.key==='Enter')searchItems()">
+        <button class="btn-sm btn-accent" onclick="searchItems()">検索</button>
+      </div>
+      <nav class="header-right">
+        <span class="notif-icon" id="notifIcon" onclick="location.href='/notifications.html'" title="通知" style="cursor:pointer">🔔
+          <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        </span>
+        <button class="menu-btn" id="menuBtn">☰</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="side-menu" id="sideMenu">
+    <ul>
+      <li><a href="/home.html">🏠 ホーム</a></li>
+      <li><a href="/post-item.html">➕ 出品する</a></li>
+      <li><a href="/messages.html">💬 メッセージ</a></li>
+      <li><a href="/notifications.html">🔔 通知</a></li>
+      <li><a href="/profile.html">👤 プロフィール</a></li>
+      <li><a href="#" onclick="logout()">🚪 ログアウト</a></li>
+    </ul>
+  </aside>
+
+  <main class="home-main">
+    <!-- フィルター -->
+    <div class="filter-bar">
+      <select id="filterCategory" onchange="searchItems()">
+        <option value="">カテゴリ：全て</option>
+        <option value="ソフト">ソフト</option>
+        <option value="カード">カード</option>
+        <option value="グッズ">グッズ</option>
+        <option value="ハード周辺機器">ハード周辺機器</option>
+        <option value="その他">その他</option>
+      </select>
+      <select id="filterCondition" onchange="searchItems()">
+        <option value="">状態：全て</option>
+        <option value="新品同様">新品同様</option>
+        <option value="良好">良好</option>
+        <option value="普通">普通</option>
+        <option value="やや傷あり">やや傷あり</option>
+        <option value="難あり">難あり</option>
+      </select>
+      <button class="btn-sm btn-accent post-btn" onclick="location.href='/post-item.html'">➕ 出品する</button>
+    </div>
+
+    <!-- アイテム一覧 -->
+    <div class="items-grid" id="itemsGrid">
+      <div class="loading">読み込み中…</div>
+    </div>
+
+    <!-- ページネーション -->
+    <div class="pagination" id="pagination"></div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/items.js"></script>
+</body>
+</html>
