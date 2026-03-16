@@ -24,8 +24,8 @@
     <ul>
       <li><a href="/index.html">🏠 トップ</a></li>
       <li><a href="/home.html">🔍 アイテムを探す</a></li>
-      <li id="menuLogin"><a href="#loginSection">🔑 ログイン</a></li>
-      <li id="menuRegister"><a href="#loginSection">📝 新規登録</a></li>
+      <li><a href="#loginSection">🔑 ログイン</a></li>
+      <li><a href="#loginSection">📝 新規登録</a></li>
     </ul>
   </aside>
 
@@ -47,6 +47,7 @@
         <button class="tab-btn" id="tabRegister" onclick="switchTab('register')">新規登録</button>
       </div>
 
+      <!-- ログインフォーム -->
       <div id="loginForm">
         <div class="form-group">
           <label>メールアドレス</label>
@@ -65,6 +66,7 @@
         </button>
       </div>
 
+      <!-- 新規登録フォーム -->
       <div id="registerForm" style="display:none">
         <div class="form-group">
           <label>ユーザー名</label>
@@ -86,13 +88,34 @@
           Googleで登録
         </button>
       </div>
+
+      <!-- メール確認待ち画面 -->
+      <div id="verifyForm" style="display:none">
+        <div class="verify-box">
+          <div class="verify-icon">📧</div>
+          <h3>確認メールを送信しました</h3>
+          <p>登録したメールアドレスに確認リンクが届いています。<br>メールを確認してリンクをタップしてください。</p>
+          <div class="error-msg" id="verifyError"></div>
+          <button class="btn-primary" onclick="checkVerified()">認証完了したらここをタップ</button>
+          <button class="btn-sm btn-outline" style="width:100%;margin-top:10px" onclick="resendVerification()">確認メールを再送する</button>
+          <button class="btn-sm btn-outline" style="width:100%;margin-top:10px" onclick="switchTab('login')">ログインに戻る</button>
+        </div>
+      </div>
+
     </section>
   </main>
 
-  <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+    import {
+      getAuth,
+      signInWithPopup,
+      GoogleAuthProvider,
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      sendEmailVerification,
+      reload
+    } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey:       "AIzaSyDdarTdLYK_KkzRlzayLUBoPhdzKMiWm2Y",
@@ -104,6 +127,7 @@
     const app      = initializeApp(firebaseConfig);
     const auth     = getAuth(app);
     const provider = new GoogleAuthProvider();
+    let pendingUser = null;
 
     async function sendToBackend(idToken) {
       const res  = await fetch('/api/auth/firebase', {
@@ -134,16 +158,16 @@
       errEl.textContent = '';
       if (!email || !password) { errEl.textContent = '全て入力してください'; return; }
       try {
-        const res  = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        if (!res.ok) { errEl.textContent = data.message || 'ログイン失敗'; return; }
-        localStorage.setItem('gt_token', data.token);
-        location.href = '/home.html';
-      } catch { errEl.textContent = '通信エラー'; }
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        if (!result.user.emailVerified) {
+          errEl.textContent = 'メールアドレスが未確認です。届いた確認メールのリンクをタップしてください。';
+          return;
+        }
+        const idToken = await result.user.getIdToken();
+        await sendToBackend(idToken);
+      } catch (err) {
+        errEl.textContent = 'メールまたはパスワードが違います';
+      }
     };
 
     window.register = async () => {
@@ -153,28 +177,74 @@
       const errEl    = document.getElementById('registerError');
       errEl.textContent = '';
       if (!username || !email || !password) { errEl.textContent = '全て入力してください'; return; }
+      if (password.length < 6) { errEl.textContent = 'パスワードは6文字以上にしてください'; return; }
       try {
-        const res  = await fetch('/api/auth/register', {
+        // Firebaseでアカウント作成
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        pendingUser  = result.user;
+
+        // バックエンドにユーザー情報を登録
+        await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, email, password })
         });
-        const data = await res.json();
-        if (!res.ok) { errEl.textContent = data.message || data.errors?.[0]?.msg || '登録失敗'; return; }
-        localStorage.setItem('gt_token', data.token);
-        location.href = '/home.html';
-      } catch { errEl.textContent = '通信エラー'; }
+
+        // 確認メール送信
+        await sendEmailVerification(result.user);
+
+        // 確認待ち画面へ
+        document.getElementById('registerForm').style.display = 'none';
+        document.getElementById('verifyForm').style.display   = '';
+      } catch (err) {
+        if (err.code === 'auth/email-already-in-use') {
+          errEl.textContent = 'このメールアドレスはすでに登録されています';
+        } else {
+          errEl.textContent = err.message;
+        }
+      }
+    };
+
+    window.checkVerified = async () => {
+      const errEl = document.getElementById('verifyError');
+      errEl.textContent = '';
+      try {
+        if (!pendingUser) { switchTab('login'); return; }
+        await reload(pendingUser);
+        if (pendingUser.emailVerified) {
+          const idToken = await pendingUser.getIdToken();
+          await sendToBackend(idToken);
+        } else {
+          errEl.textContent = 'まだ確認が完了していません。メールのリンクをタップしてください。';
+        }
+      } catch (err) {
+        errEl.textContent = err.message;
+      }
+    };
+
+    window.resendVerification = async () => {
+      const errEl = document.getElementById('verifyError');
+      try {
+        if (pendingUser) {
+          await sendEmailVerification(pendingUser);
+          errEl.textContent = '';
+          alert('確認メールを再送しました！');
+        }
+      } catch (err) {
+        errEl.textContent = err.message;
+      }
     };
 
     window.switchTab = (tab) => {
-      const isLogin = tab === 'login';
-      document.getElementById('loginForm').style.display    = isLogin ? '' : 'none';
-      document.getElementById('registerForm').style.display = isLogin ? 'none' : '';
+      const isLogin    = tab === 'login';
+      const isRegister = tab === 'register';
+      document.getElementById('loginForm').style.display    = isLogin    ? '' : 'none';
+      document.getElementById('registerForm').style.display = isRegister ? '' : 'none';
+      document.getElementById('verifyForm').style.display   = 'none';
       document.getElementById('tabLogin').classList.toggle('active', isLogin);
-      document.getElementById('tabRegister').classList.toggle('active', !isLogin);
+      document.getElementById('tabRegister').classList.toggle('active', isRegister);
     };
 
-    // ログイン済みならhome.htmlへ
     if (localStorage.getItem('gt_token')) location.href = '/home.html';
   </script>
 
