@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameTrade - 出品する</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="/home.html" class="logo">🎮 GameTrade</a>
+      <nav class="header-right">
+        <button class="menu-btn" id="menuBtn">☰</button>
+      </nav>
+    </div>
+  </header>
+  <div class="overlay" id="overlay"></div>
+  <aside class="side-menu" id="sideMenu">
+    <ul>
+      <li><a href="/home.html">🏠 ホーム</a></li>
+      <li><a href="/post-item.html">➕ 出品する</a></li>
+      <li><a href="/messages.html">💬 メッセージ</a></li>
+      <li><a href="/notifications.html">🔔 通知</a></li>
+      <li><a href="/profile.html">👤 プロフィール</a></li>
+      <li><a href="#" onclick="logout()">🚪 ログアウト</a></li>
+    </ul>
+  </aside>
+
+  <main class="form-page">
+    <h1 class="page-title">➕ アイテムを出品する</h1>
+
+    <div class="post-form card">
+      <!-- 画像 -->
+      <div class="form-group">
+        <label>画像（最大5枚・各5MBまで）</label>
+        <div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageInput').click()">
+          <span>📷 クリックして画像を追加</span>
+        </div>
+        <input type="file" id="imageInput" accept="image/*" multiple style="display:none" onchange="previewImages(event)">
+        <div class="image-preview-list" id="imagePreviewList"></div>
+      </div>
+
+      <!-- タイトル -->
+      <div class="form-group">
+        <label>アイテム名 <span class="required">*</span></label>
+        <input type="text" id="title" placeholder="例：ポケモンカード　ピカチュウex">
+      </div>
+
+      <!-- カテゴリ・状態 -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>カテゴリ <span class="required">*</span></label>
+          <select id="category">
+            <option value="ソフト">ソフト</option>
+            <option value="カード">カード</option>
+            <option value="グッズ">グッズ</option>
+            <option value="ハード周辺機器">ハード周辺機器</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>状態 <span class="required">*</span></label>
+          <select id="condition">
+            <option value="新品同様">新品同様</option>
+            <option value="良好">良好</option>
+            <option value="普通">普通</option>
+            <option value="やや傷あり">やや傷あり</option>
+            <option value="難あり">難あり</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- プラットフォーム -->
+      <div class="form-group">
+        <label>プラットフォーム（任意）</label>
+        <input type="text" id="platform" placeholder="例：Nintendo Switch、PS5、TCGなど">
+      </div>
+
+      <!-- 説明 -->
+      <div class="form-group">
+        <label>説明</label>
+        <textarea id="description" rows="4" placeholder="状態の詳細・付属品など"></textarea>
+      </div>
+
+      <!-- 求めるもの -->
+      <div class="form-group">
+        <label>🔄 求めるアイテム名</label>
+        <input type="text" id="wantTitle" placeholder="例：スマブラSP、リザードンex など">
+      </div>
+
+      <!-- タグ -->
+      <div class="form-group">
+        <label>タグ（カンマ区切り）</label>
+        <input type="text" id="tags" placeholder="例：ポケモン, カード, キラ">
+      </div>
+
+      <div class="error-msg" id="postError"></div>
+      <button class="btn-primary" onclick="postItem()">出品する</button>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/items.js"></script>
+</body>
+</html>
