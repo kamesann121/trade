@@ -274,24 +274,57 @@
 
         if (currentMode === 'register') {
           const { username, email, password } = pendingRegisterData;
-          const result = await createUserWithEmailAndPassword(auth, email, password);
-          await fetch('/api/auth/register', {
+
+          // バックエンドにユーザー登録（Firebase側は別途処理）
+          const regRes = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, email, password })
           });
-          const idToken = await result.user.getIdToken();
+
+          let firebaseUser;
+          try {
+            // まず新規作成を試みる
+            const result = await createUserWithEmailAndPassword(auth, email, password);
+            firebaseUser = result.user;
+          } catch (createErr) {
+            if (createErr.code === 'auth/email-already-in-use') {
+              // すでに存在する場合はログイン
+              const { signInWithEmailAndPassword } = await import(
+                'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js'
+              );
+              const result = await signInWithEmailAndPassword(auth, email, password);
+              firebaseUser = result.user;
+            } else {
+              throw createErr;
+            }
+          }
+
+          const idToken = await firebaseUser.getIdToken();
           await sendToBackend(idToken);
         } else {
           const idToken = await auth.currentUser.getIdToken();
           await sendToBackend(idToken);
         }
       } catch (err) {
-        errEl.textContent = 'コードが違います。もう一度確認してください。';
+        if (err.message && err.message.includes('code')) {
+          errEl.textContent = 'コードが違います。もう一度確認してください。';
+        } else {
+          errEl.textContent = 'エラーが発生しました: ' + err.message;
+        }
       }
     };
 
-    if (localStorage.getItem('gt_token')) location.href = '/home.html';
+    function isTokenValid() {
+      const token = localStorage.getItem('gt_token');
+      if (!token) return false;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.exp * 1000 > Date.now();
+      } catch (e) { return false; }
+    }
+
+    if (isTokenValid()) location.href = '/home.html';
   </script>
 
   <script src="/js/auth.js"></script>
