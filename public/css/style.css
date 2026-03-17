@@ -653,3 +653,29 @@ body {
   line-height: 1.8;
   margin-bottom: 20px;
 }
+
+/* ═══════════════════════════════════════════
+   タグ検索・人気タグ
+   ═══════════════════════════════════════════ */
+.popular-tags {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 8px; margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.tag-label {
+  font-size: 12px; color: var(--text-sub); flex-shrink: 0;
+}
+.tag.clickable {
+  cursor: pointer; transition: background 0.2s, color 0.2s;
+}
+.tag.clickable:hover {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+}
+.item-tags {
+  display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0;
+}
+.item-tags .tag {
+  font-size: 10px; padding: 2px 6px;
+}
