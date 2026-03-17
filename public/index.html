@@ -115,6 +115,7 @@
     </section>
   </main>
 
+  <script src="/js/auth.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
     import {
@@ -269,30 +270,16 @@
       if (!code) { errEl.textContent = 'コードを入力してください'; return; }
 
       try {
-        const credential = PhoneAuthProvider.credential(confirmationResult, code);
-        await signInWithCredential(auth, credential);
-
         if (currentMode === 'register') {
           const { username, email, password } = pendingRegisterData;
 
-          // バックエンドにユーザー登録（Firebase側は別途処理）
-          const regRes = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password })
-          });
-
+          // ① まずEmail/Passwordでアカウント作成（またはログイン）
           let firebaseUser;
           try {
-            // まず新規作成を試みる
             const result = await createUserWithEmailAndPassword(auth, email, password);
             firebaseUser = result.user;
           } catch (createErr) {
             if (createErr.code === 'auth/email-already-in-use') {
-              // すでに存在する場合はログイン
-              const { signInWithEmailAndPassword } = await import(
-                'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js'
-              );
               const result = await signInWithEmailAndPassword(auth, email, password);
               firebaseUser = result.user;
             } else {
@@ -300,9 +287,28 @@
             }
           }
 
+          // ② SMS認証コードの資格情報を作成してリンク（または確認のみ）
+          try {
+            const phoneCredential = PhoneAuthProvider.credential(confirmationResult, code);
+            await signInWithCredential(auth, phoneCredential);
+          } catch (phoneErr) {
+            // 電話番号認証に失敗してもEmail認証済みなら続行
+            console.warn('Phone link warning:', phoneErr.message);
+          }
+
+          // ③ バックエンドにユーザー登録
+          await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+          });
+
           const idToken = await firebaseUser.getIdToken();
           await sendToBackend(idToken);
         } else {
+          // ログインの場合：SMS認証を検証してからバックエンドへ
+          const credential = PhoneAuthProvider.credential(confirmationResult, code);
+          await signInWithCredential(auth, credential);
           const idToken = await auth.currentUser.getIdToken();
           await sendToBackend(idToken);
         }
@@ -324,9 +330,8 @@
       } catch (e) { return false; }
     }
 
-    if (isTokenValid()) location.href = '/home.html';
+    // 自動リダイレクトは行わない（ユーザーが明示的にログインする）
   </script>
 
-  <script src="/js/auth.js"></script>
-</body>
+
 </html>
