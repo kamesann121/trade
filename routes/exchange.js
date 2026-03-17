@@ -130,6 +130,26 @@ router.put('/:id/reject', auth, async (req, res) => {
   }
 });
 
+// ── 完了 ────────────────────────────────────
+router.put('/:id/complete', auth, async (req, res) => {
+  try {
+    const request = await ExchangeRequest.findById(req.params.id)
+      .populate('targetItem').populate('offerItem');
+    if (!request) return res.status(404).json({ message: '申請が見つかりません' });
+    const isInvolved = [request.requester.toString(), request.owner.toString()].includes(req.user.id);
+    if (!isInvolved) return res.status(403).json({ message: '権限がありません' });
+    if (request.status !== 'accepted')
+      return res.status(400).json({ message: '承認済みの申請のみ完了にできます' });
+    request.status = 'completed';
+    await request.save();
+    const otherId = request.requester.toString() === req.user.id ? request.owner : request.requester;
+    await addNotification(otherId, 'exchange', `交換が完了しました！「${request.targetItem.title}」`, `/my-exchanges.html`);
+    res.json({ message: '完了しました', request });
+  } catch (err) {
+    res.status(500).json({ message: 'サーバーエラー', error: err.message });
+  }
+});
+
 router.put('/:id/cancel', auth, async (req, res) => {
   try {
     const request = await ExchangeRequest.findById(req.params.id)
