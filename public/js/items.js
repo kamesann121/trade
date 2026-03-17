@@ -75,20 +75,59 @@ function renderPagination(pages, current) {
 // ══════════════════════════════════════════════
 // POST ITEM PAGE
 // ══════════════════════════════════════════════
+
+// 選択中のファイルを管理する配列
+let selectedFiles = [];
+
 function previewImages(event) {
-  const files = Array.from(event.target.files);
-  const list  = document.getElementById('imagePreviewList');
+  const newFiles = Array.from(event.target.files);
+  // 既存 + 新規で最大5枚
+  selectedFiles = [...selectedFiles, ...newFiles].slice(0, 5);
+  // inputをリセット（同じファイルを再選択できるように）
+  event.target.value = '';
+  renderPreviews();
+}
+
+function renderPreviews() {
+  const list = document.getElementById('imagePreviewList');
+  if (!list) return;
   list.innerHTML = '';
-  files.slice(0, 5).forEach((file, i) => {
+
+  // FileReaderは非同期なので順番がずれないようPromise.allで処理
+  const promises = selectedFiles.map((file, i) => new Promise(resolve => {
     const reader = new FileReader();
-    reader.onload = e => {
-      list.innerHTML += `
-        <div class="preview-img-wrap">
-          <img src="${e.target.result}" alt="preview${i}">
-        </div>`;
-    };
+    reader.onload = e => resolve({ dataUrl: e.target.result, index: i });
     reader.readAsDataURL(file);
+  }));
+
+  Promise.all(promises).then(results => {
+    list.innerHTML = '';
+    results.forEach(({ dataUrl, index }) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'preview-img-wrap';
+      wrap.style.cssText = 'position:relative;display:inline-block;';
+      wrap.innerHTML = `
+        <img src="${dataUrl}" alt="preview${index}"
+          style="width:80px;height:80px;object-fit:cover;border-radius:8px;display:block;border:2px solid var(--border);">
+        <button onclick="removeImage(${index})"
+          title="この画像を削除"
+          style="
+            position:absolute;top:-7px;right:-7px;
+            width:22px;height:22px;border-radius:50%;
+            background:var(--danger);color:#fff;
+            border:2px solid #fff;cursor:pointer;font-size:13px;
+            display:flex;align-items:center;justify-content:center;
+            line-height:1;padding:0;font-weight:bold;
+            box-shadow:0 2px 6px rgba(0,0,0,0.2);
+          ">×</button>`;
+      list.appendChild(wrap);
+    });
   });
+}
+
+function removeImage(index) {
+  selectedFiles.splice(index, 1);
+  renderPreviews();
 }
 
 async function postItem() {
@@ -105,8 +144,7 @@ async function postItem() {
   if (description) formData.append('description', description);
   if (wantTitle)   formData.append('wantTitle', wantTitle);
 
-  const imageFiles = document.getElementById('imageInput')?.files;
-  if (imageFiles) Array.from(imageFiles).slice(0, 5).forEach(f => formData.append('images', f));
+  selectedFiles.slice(0, 5).forEach(f => formData.append('images', f));
 
   try {
     const res  = await fetch(API, {
@@ -119,7 +157,7 @@ async function postItem() {
       errEl.textContent = data.errors?.[0]?.msg || data.message || '投稿失敗';
       return;
     }
-    location.href = `/item-detail.html?id=${data._id}`;
+    location.href = '/home.html'; // 出品後はホームへ
   } catch {
     errEl.textContent = '通信エラー';
   }
