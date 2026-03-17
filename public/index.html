@@ -217,26 +217,50 @@ function getRecaptcha() {
     };
 
     window.startRegisterPhone = async () => {
-      const username = document.getElementById('regUsername').value.trim();
-      const email    = document.getElementById('regEmail').value.trim();
-      const password = document.getElementById('regPassword').value;
-      const phone    = document.getElementById('regPhone').value.trim();
-      const errEl    = document.getElementById('registerError');
-      errEl.textContent = '';
+  const username = document.getElementById('regUsername').value.trim();
+  const email    = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const phone    = document.getElementById('regPhone').value.trim();
+  const errEl    = document.getElementById('registerError');
+  errEl.textContent = '';
 
-      if (!username || !email || !password || !phone) {
-        errEl.textContent = '全て入力してください'; return;
-      }
-      if (password.length < 6) {
-        errEl.textContent = 'パスワードは6文字以上にしてください'; return;
-      }
+  if (!username || !email || !password || !phone) {
+    errEl.textContent = '全て入力してください'; return;
+  }
+  if (password.length < 6) {
+    errEl.textContent = 'パスワードは6文字以上にしてください'; return;
+  }
 
-      const phoneE164 = toE164(phone);
+  const phoneE164 = toE164(phone);
 
-      try {
-        const recaptcha    = getRecaptcha();
-        const phoneProvider = new PhoneAuthProvider(auth);
-        confirmationResult  = await phoneProvider.verifyPhoneNumber(phoneE164, recaptcha);
+  try {
+    // reCAPTCHAを完全にリセット
+    if (recaptchaVerifier) {
+      try { recaptchaVerifier.clear(); } catch(e) {}
+      recaptchaVerifier = null;
+    }
+    document.getElementById('recaptcha-container').innerHTML = '';
+
+    recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'invisible',
+      callback: () => {}
+    });
+    await recaptchaVerifier.render();
+
+    const phoneProvider = new PhoneAuthProvider(auth);
+    confirmationResult  = await phoneProvider.verifyPhoneNumber(phoneE164, recaptchaVerifier);
+    currentMode         = 'register';
+    pendingRegisterData = { username, email, password };
+    document.getElementById('registerForm').style.display    = 'none';
+    document.getElementById('phoneVerifyForm').style.display = '';
+  } catch (err) {
+    errEl.textContent = 'SMS送信失敗：' + err.message;
+    if (recaptchaVerifier) {
+      try { recaptchaVerifier.clear(); } catch(e) {}
+      recaptchaVerifier = null;
+    }
+  }
+};
         currentMode         = 'register';
         pendingRegisterData = { username, email, password };
         document.getElementById('registerForm').style.display    = 'none';
