@@ -12,11 +12,14 @@
     <div class="header-inner">
       <a href="/home.html" class="logo">🎮 GameTrade</a>
       <div class="search-bar">
-        <input type="text" id="searchInput" placeholder="ゲーム名・カード名で検索…" onkeydown="if(event.key==='Enter')searchItems()">
+        <input type="text" id="searchInput"
+          placeholder="アイテム名 または #タグで検索…"
+          onkeydown="if(event.key==='Enter')searchItems()">
         <button class="btn-sm btn-accent" onclick="searchItems()">検索</button>
       </div>
       <nav class="header-right">
-        <span class="notif-icon" id="notifIcon" onclick="location.href='/notifications.html'" title="通知" style="cursor:pointer">🔔
+        <span class="notif-icon" onclick="location.href='/notifications.html'"
+          style="cursor:pointer">🔔
           <span class="notif-badge" id="notifBadge" style="display:none">0</span>
         </span>
         <button class="menu-btn" id="menuBtn">☰</button>
@@ -29,6 +32,7 @@
     <ul>
       <li><a href="/home.html">🏠 ホーム</a></li>
       <li><a href="/post-item.html">➕ 出品する</a></li>
+      <li><a href="/my-exchanges.html">🔄 交換管理</a></li>
       <li><a href="/messages.html">💬 メッセージ</a></li>
       <li><a href="/notifications.html">🔔 通知</a></li>
       <li><a href="/profile.html">👤 プロフィール</a></li>
@@ -37,25 +41,20 @@
   </aside>
 
   <main class="home-main">
-    <!-- フィルター -->
-    <div class="filter-bar">
-      <select id="filterCategory" onchange="searchItems()">
-        <option value="">カテゴリ：全て</option>
-        <option value="ソフト">ソフト</option>
-        <option value="カード">カード</option>
-        <option value="グッズ">グッズ</option>
-        <option value="ハード周辺機器">ハード周辺機器</option>
-        <option value="その他">その他</option>
-      </select>
-      <select id="filterCondition" onchange="searchItems()">
-        <option value="">状態：全て</option>
-        <option value="新品同様">新品同様</option>
-        <option value="良好">良好</option>
-        <option value="普通">普通</option>
-        <option value="やや傷あり">やや傷あり</option>
-        <option value="難あり">難あり</option>
-      </select>
-      <button class="btn-sm btn-accent post-btn" onclick="location.href='/post-item.html'">➕ 出品する</button>
+    <!-- 人気タグ -->
+    <div class="popular-tags" id="popularTags">
+      <span class="tag-label">人気タグ：</span>
+      <span class="tag clickable" onclick="searchByTag('フォートナイト')">#フォートナイト</span>
+      <span class="tag clickable" onclick="searchByTag('マインクラフト')">#マインクラフト</span>
+      <span class="tag clickable" onclick="searchByTag('原神')">#原神</span>
+      <span class="tag clickable" onclick="searchByTag('ポケモン')">#ポケモン</span>
+      <span class="tag clickable" onclick="searchByTag('荒野行動')">#荒野行動</span>
+    </div>
+
+    <!-- 出品ボタン -->
+    <div style="text-align:right;margin-bottom:16px">
+      <button class="btn-sm btn-accent post-btn"
+        onclick="location.href='/post-item.html'">➕ 出品する</button>
     </div>
 
     <!-- アイテム一覧 -->
@@ -69,5 +68,14 @@
 
   <script src="/js/auth.js"></script>
   <script src="/js/items.js"></script>
+  <script>
+    // 未ログインならトップへ
+    if (!getToken()) location.href = '/index.html';
+
+    function searchByTag(tag) {
+      document.getElementById('searchInput').value = '#' + tag;
+      searchItems();
+    }
+  </script>
 </body>
 </html>
