@@ -6,6 +6,98 @@
   <title>GameTrade - プロフィール</title>
   <link rel="stylesheet" href="/css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    .profile-page { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+
+    /* ─ プロフィールカード ─ */
+    .profile-card {
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 28px;
+      box-shadow: var(--shadow); margin-bottom: 24px;
+    }
+    .profile-top {
+      display: flex; align-items: flex-start; gap: 20px; margin-bottom: 20px;
+    }
+    .avatar-wrap { position: relative; flex-shrink: 0; }
+    .avatar-img {
+      width: 80px; height: 80px; border-radius: 50%;
+      object-fit: cover;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; font-weight: 900; color: #fff;
+      border: 3px solid var(--border);
+    }
+    .avatar-edit-btn {
+      position: absolute; bottom: 0; right: 0;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      border: 2px solid #fff; cursor: pointer;
+      font-size: 13px; display: flex; align-items: center; justify-content: center;
+    }
+    .profile-info { flex: 1; min-width: 0; }
+    .profile-name-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+    }
+    .profile-username {
+      font-size: 20px; font-weight: 900;
+    }
+    .edit-profile-btn {
+      padding: 4px 12px; border-radius: 6px; font-size: 12px;
+      background: var(--bg); border: 1.5px solid var(--border);
+      cursor: pointer; color: var(--text); transition: all 0.2s;
+    }
+    .edit-profile-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .profile-bio-text {
+      font-size: 13px; color: var(--text-sub); line-height: 1.7;
+    }
+
+    /* ─ 編集フォーム ─ */
+    .profile-edit-form { display: none; margin-top: 16px; }
+    .profile-edit-form.open { display: block; }
+    .char-count {
+      font-size: 11px; color: var(--text-sub);
+      text-align: right; margin-top: 2px;
+    }
+    .char-count.over { color: var(--danger); }
+    .edit-actions { display: flex; gap: 10px; margin-top: 12px; }
+    .edit-actions button { flex: 1; }
+
+    /* ─ 出品一覧 ─ */
+    .section-header {
+      font-size: 16px; font-weight: 900;
+      margin-bottom: 16px; padding-bottom: 10px;
+      border-bottom: 2px solid var(--border);
+    }
+    .my-items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
+    }
+    .my-item-card {
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      text-decoration: none; color: var(--text);
+      transition: transform 0.2s, border-color 0.2s;
+      box-shadow: var(--shadow);
+    }
+    .my-item-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .my-item-img {
+      aspect-ratio: 1; background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; overflow: hidden;
+    }
+    .my-item-img img { width: 100%; height: 100%; object-fit: cover; }
+    .my-item-body { padding: 10px; }
+    .my-item-title {
+      font-size: 12px; font-weight: 700; line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .my-item-status {
+      font-size: 11px; margin-top: 4px;
+      color: var(--text-sub);
+    }
+  </style>
 </head>
 <body>
   <header class="header">
@@ -19,12 +111,12 @@
       </nav>
     </div>
   </header>
+
   <div class="overlay" id="overlay"></div>
   <aside class="side-menu" id="sideMenu">
     <ul>
       <li><a href="/home.html">🏠 ホーム</a></li>
       <li><a href="/post-item.html">➕ 出品する</a></li>
-      <li><a href="/my-exchanges.html">🔄 交換管理</a></li>
       <li><a href="/messages.html">💬 メッセージ</a></li>
       <li><a href="/notifications.html">🔔 通知</a></li>
       <li><a href="/profile.html">👤 プロフィール</a></li>
@@ -32,12 +124,202 @@
     </ul>
   </aside>
 
-  <main class="home-main" id="profileMain">
-    <div class="loading">読み込み中…</div>
+  <main class="profile-page">
+
+    <!-- プロフィールカード -->
+    <div class="profile-card">
+      <div class="profile-top">
+        <div class="avatar-wrap">
+          <div class="avatar-img" id="avatarDisplay">?</div>
+          <button class="avatar-edit-btn" onclick="document.getElementById('avatarInput').click()" title="画像を変更">✏️</button>
+          <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
+        </div>
+        <div class="profile-info">
+          <div class="profile-name-row">
+            <span class="profile-username" id="displayUsername">読み込み中…</span>
+            <button class="edit-profile-btn" onclick="toggleEdit()">✏️ 編集</button>
+          </div>
+          <div class="profile-bio-text" id="displayBio">自己紹介なし</div>
+        </div>
+      </div>
+
+      <!-- 編集フォーム -->
+      <div class="profile-edit-form" id="editForm">
+        <div class="form-group">
+          <label>ニックネーム（16文字以内）</label>
+          <input type="text" id="editUsername" maxlength="16" oninput="updateCount('editUsername','usernameCount',16)">
+          <div class="char-count" id="usernameCount">0 / 16</div>
+        </div>
+        <div class="form-group">
+          <label>自己紹介（40文字以内）</label>
+          <textarea id="editBio" maxlength="40" rows="2"
+            style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;resize:none;font-family:inherit;outline:none;"
+            oninput="updateCount('editBio','bioCount',40)"></textarea>
+          <div class="char-count" id="bioCount">0 / 40</div>
+        </div>
+        <div class="error-msg" id="editError"></div>
+        <div class="edit-actions">
+          <button class="btn-primary" onclick="saveProfile()">保存する</button>
+          <button class="btn-sm btn-outline" style="flex:1;padding:12px" onclick="toggleEdit()">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 自分の出品一覧 -->
+    <div class="section-header">📦 出品したアイテム</div>
+    <div class="my-items-grid" id="myItemsGrid">
+      <div class="loading">読み込み中…</div>
+    </div>
+
   </main>
 
   <script src="/js/auth.js"></script>
   <script src="/js/notifications.js"></script>
-  <script src="/js/profile.js"></script>
+  <script>
+    if (!getToken()) location.href = '/index.html';
+
+    let myProfile = null;
+
+    // ── プロフィール読み込み ──────────────────
+    async function loadProfile() {
+      try {
+        const res  = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${getToken()}` }
+        });
+        const user = await res.json();
+        myProfile  = user;
+
+        // アバター表示
+        const avatarEl = document.getElementById('avatarDisplay');
+        if (user.avatar) {
+          avatarEl.innerHTML = `<img src="${user.avatar}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;">`;
+        } else {
+          avatarEl.textContent = (user.username?.[0] || '?').toUpperCase();
+          avatarEl.style.cssText = 'width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:#fff;border:3px solid var(--border);';
+        }
+
+        document.getElementById('displayUsername').textContent = user.username || '名無し';
+        document.getElementById('displayBio').textContent      = user.bio || '自己紹介なし';
+
+        // 編集フォームに初期値セット
+        document.getElementById('editUsername').value = user.username || '';
+        document.getElementById('editBio').value      = user.bio || '';
+        updateCount('editUsername', 'usernameCount', 16);
+        updateCount('editBio', 'bioCount', 40);
+
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ── 出品アイテム読み込み ──────────────────
+    async function loadMyItems() {
+      const grid = document.getElementById('myItemsGrid');
+      try {
+        const res  = await fetch('/api/items/my/list', {
+          headers: { Authorization: `Bearer ${getToken()}` }
+        });
+        const items = await res.json();
+        if (!items.length) {
+          grid.innerHTML = '<div class="loading" style="grid-column:1/-1">まだ出品したアイテムはありません</div>';
+          return;
+        }
+        grid.innerHTML = items.map(item => `
+          <a href="/item-detail.html?id=${item._id}" class="my-item-card">
+            <div class="my-item-img">
+              ${item.images?.[0]
+                ? `<img src="${item.images[0]}" alt="${item.title}">`
+                : '🎮'}
+            </div>
+            <div class="my-item-body">
+              <div class="my-item-title">${item.title}</div>
+              <div class="my-item-status">${item.status}</div>
+            </div>
+          </a>
+        `).join('');
+      } catch {
+        grid.innerHTML = '<div class="loading">読み込みに失敗しました</div>';
+      }
+    }
+
+    // ── 編集フォームの開閉 ────────────────────
+    function toggleEdit() {
+      const form = document.getElementById('editForm');
+      form.classList.toggle('open');
+      if (form.classList.contains('open') && myProfile) {
+        document.getElementById('editUsername').value = myProfile.username || '';
+        document.getElementById('editBio').value      = myProfile.bio || '';
+        updateCount('editUsername', 'usernameCount', 16);
+        updateCount('editBio', 'bioCount', 40);
+      }
+    }
+
+    // ── 文字数カウント ────────────────────────
+    function updateCount(inputId, countId, max) {
+      const val = document.getElementById(inputId).value.length;
+      const el  = document.getElementById(countId);
+      el.textContent = `${val} / ${max}`;
+      el.classList.toggle('over', val > max);
+    }
+
+    // ── プロフィール保存 ──────────────────────
+    async function saveProfile() {
+      const username = document.getElementById('editUsername').value.trim();
+      const bio      = document.getElementById('editBio').value.trim();
+      const errEl    = document.getElementById('editError');
+      errEl.textContent = '';
+
+      if (!username) { errEl.textContent = 'ニックネームは必須です'; return; }
+      if (username.length > 16) { errEl.textContent = 'ニックネームは16文字以内にしてください'; return; }
+      if (bio.length > 40)      { errEl.textContent = '自己紹介は40文字以内にしてください'; return; }
+
+      try {
+        const res  = await fetch('/api/users/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${getToken()}`
+          },
+          body: JSON.stringify({ username, bio })
+        });
+        const data = await res.json();
+        if (!res.ok) { errEl.textContent = data.message || '保存に失敗しました'; return; }
+
+        myProfile = { ...myProfile, username, bio };
+        document.getElementById('displayUsername').textContent = username;
+        document.getElementById('displayBio').textContent      = bio || '自己紹介なし';
+        document.getElementById('editForm').classList.remove('open');
+
+      } catch {
+        errEl.textContent = '通信エラーが発生しました';
+      }
+    }
+
+    // ── アバターアップロード ──────────────────
+    async function uploadAvatar(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('avatar', file);
+      try {
+        const res  = await fetch('/api/users/avatar', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${getToken()}` },
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) { alert('画像のアップロードに失敗しました'); return; }
+
+        const avatarEl = document.getElementById('avatarDisplay');
+        avatarEl.innerHTML = `<img src="${data.avatar}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;">`;
+        myProfile.avatar = data.avatar;
+      } catch {
+        alert('通信エラーが発生しました');
+      }
+    }
+
+    loadProfile();
+    loadMyItems();
+  </script>
 </body>
 </html>
