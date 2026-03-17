@@ -152,14 +152,20 @@
       return cleaned;
     }
 
-    function getRecaptcha() {
-      // 毎回新しいインスタンスを作成
-      const container = document.getElementById('recaptcha-container');
-      container.innerHTML = '';
-      return new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible'
-      });
-    }
+    let recaptchaVerifier = null;
+
+function getRecaptcha() {
+  if (recaptchaVerifier) {
+    recaptchaVerifier.clear();
+    recaptchaVerifier = null;
+  }
+  const container = document.getElementById('recaptcha-container');
+  container.innerHTML = '';
+  recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+    size: 'invisible'
+  });
+  return recaptchaVerifier;
+}
 
     async function sendToBackend(idToken) {
       const res  = await fetch('/api/auth/firebase', {
