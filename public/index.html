@@ -33,11 +33,11 @@
     <section class="notice-box">
       <h2>⚠️ ご利用前に必ずお読みください</h2>
       <ul>
-        <li>本サイトはゲーム内アイテムなどの<strong>個人間交換</strong>を仲介するサービスです。</li>
+        <li>本サイトはゲームソフト・カード・グッズなどの<strong>個人間交換</strong>を仲介するサービスです。</li>
         <li>金銭のやり取りは一切介在しません。交換はあくまで当事者間の合意に基づきます。</li>
-        <li>違法品・改造品・偽造出品は<strong>厳禁</strong>です。発覚した場合は即時アカウント停止となります。</li>
+        <li>違法コピー品・改造品・偽物の出品は<strong>厳禁</strong>です。発覚した場合は即時アカウント停止となります。</li>
         <li>トラブルが発生した場合、当サイトは責任を負いかねます。交換前に十分な確認をお願いします。</li>
-        <li>詐欺には気をつけてください。</li>
+        <li>18歳未満の方はご利用いただけません。</li>
       </ul>
     </section>
 
@@ -82,8 +82,8 @@
         </div>
         <div class="form-group">
           <label>電話番号</label>
-          <input type="tel" id="regPhone" placeholder="+819012345678">
-          <div class="hint" style="margin-top:4px">国際形式で入力（日本は+81から）</div>
+          <input type="tel" id="regPhone" placeholder="09012345678">
+          <div class="hint" style="margin-top:4px">ハイフンなしで入力してください</div>
         </div>
         <div class="error-msg" id="registerError"></div>
         <button class="btn-primary" onclick="startRegisterPhone()">SMSで確認コードを送る</button>
@@ -101,7 +101,7 @@
           <h3>SMS認証コードを入力</h3>
           <p>携帯電話に届いた6桁のコードを入力してください。</p>
           <div class="form-group">
-            <input type="number" id="smsCode" placeholder="6桁のコード" maxlength="6"
+            <input type="number" id="smsCode" placeholder="6桁のコード"
               style="text-align:center;font-size:24px;letter-spacing:8px">
           </div>
           <div class="error-msg" id="phoneVerifyError"></div>
@@ -111,7 +111,6 @@
         </div>
       </div>
 
-      <!-- reCAPTCHA -->
       <div id="recaptcha-container"></div>
     </section>
   </main>
@@ -130,24 +129,34 @@
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
     const firebaseConfig = {
-      apiKey:       "AIzaSyDdarTdLYK_KkzRlzayLUBoPhdzKMiWm2Y",
-      authDomain:   "game-exchange-de644.firebaseapp.com",
-      projectId:    "game-exchange-de644",
-      appId:        "1:801591509362:web:fb8fa007afbc2a86e21deb"
+      apiKey:     "AIzaSyDdarTdLYK_KkzRlzayLUBoPhdzKMiWm2Y",
+      authDomain: "game-exchange-de644.firebaseapp.com",
+      projectId:  "game-exchange-de644",
+      appId:      "1:801591509362:web:fb8fa007afbc2a86e21deb"
     };
 
     const app      = initializeApp(firebaseConfig);
     const auth     = getAuth(app);
     const provider = new GoogleAuthProvider();
 
-    let recaptchaVerifier = null;
     let confirmationResult = null;
-    let currentMode = 'login'; // 'login' or 'register'
+    let currentMode        = 'login';
     let pendingRegisterData = null;
 
-    function initRecaptcha() {
-      if (recaptchaVerifier) return;
-      recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+    // 日本の電話番号を国際形式に変換
+    function toE164(phone) {
+      const cleaned = phone.replace(/[-\s]/g, '');
+      if (cleaned.startsWith('0')) {
+        return '+81' + cleaned.slice(1);
+      }
+      return cleaned;
+    }
+
+    function getRecaptcha() {
+      // 毎回新しいインスタンスを作成
+      const container = document.getElementById('recaptcha-container');
+      container.innerHTML = '';
+      return new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible'
       });
     }
@@ -182,20 +191,17 @@
       if (!email || !password) { errEl.textContent = '全て入力してください'; return; }
 
       try {
-        // まずメール/パスワードで認証確認
         const result = await signInWithEmailAndPassword(auth, email, password);
         const phone  = result.user.phoneNumber;
 
         if (phone) {
-          // 電話番号登録済み → SMS送信
           currentMode = 'login';
-          initRecaptcha();
+          const recaptcha = getRecaptcha();
           const phoneProvider = new PhoneAuthProvider(auth);
-          confirmationResult = await phoneProvider.verifyPhoneNumber(phone, recaptchaVerifier);
+          confirmationResult = await phoneProvider.verifyPhoneNumber(phone, recaptcha);
           document.getElementById('loginForm').style.display       = 'none';
           document.getElementById('phoneVerifyForm').style.display = '';
         } else {
-          // 電話番号未登録 → そのままログイン
           const idToken = await result.user.getIdToken();
           await sendToBackend(idToken);
         }
@@ -218,21 +224,19 @@
       if (password.length < 6) {
         errEl.textContent = 'パスワードは6文字以上にしてください'; return;
       }
-      if (!phone.startsWith('+')) {
-        errEl.textContent = '電話番号は+81から始まる国際形式で入力してください'; return;
-      }
+
+      const phoneE164 = toE164(phone);
 
       try {
-        initRecaptcha();
+        const recaptcha    = getRecaptcha();
         const phoneProvider = new PhoneAuthProvider(auth);
-        confirmationResult  = await phoneProvider.verifyPhoneNumber(phone, recaptchaVerifier);
+        confirmationResult  = await phoneProvider.verifyPhoneNumber(phoneE164, recaptcha);
         currentMode         = 'register';
-        pendingRegisterData = { username, email, password, phone };
+        pendingRegisterData = { username, email, password };
         document.getElementById('registerForm').style.display    = 'none';
         document.getElementById('phoneVerifyForm').style.display = '';
       } catch (err) {
         errEl.textContent = 'SMS送信失敗：' + err.message;
-        recaptchaVerifier = null;
       }
     };
 
@@ -247,9 +251,8 @@
 
         if (currentMode === 'register') {
           const { username, email, password } = pendingRegisterData;
-          // Firebaseでメール/パスワードアカウント作成
+          await signInWithCredential(auth, credential);
           const result = await createUserWithEmailAndPassword(auth, email, password);
-          // バックエンドに登録
           await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -258,7 +261,6 @@
           const idToken = await result.user.getIdToken();
           await sendToBackend(idToken);
         } else {
-          // ログイン：電話番号認証
           await signInWithCredential(auth, credential);
           const user    = auth.currentUser;
           const idToken = await user.getIdToken();
@@ -276,7 +278,6 @@
       } else {
         document.getElementById('loginForm').style.display = '';
       }
-      recaptchaVerifier = null;
     };
 
     window.switchTab = (tab) => {
@@ -286,7 +287,6 @@
       document.getElementById('phoneVerifyForm').style.display = 'none';
       document.getElementById('tabLogin').classList.toggle('active', isLogin);
       document.getElementById('tabRegister').classList.toggle('active', !isLogin);
-      recaptchaVerifier = null;
     };
 
     if (localStorage.getItem('gt_token')) location.href = '/home.html';
