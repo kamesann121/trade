@@ -13,7 +13,6 @@
     <div class="header-inner">
       <div class="logo">🎮 GameTrade</div>
       <nav class="header-right">
-        <span class="notif-icon" title="通知">🔔</span>
         <button class="menu-btn" id="menuBtn">☰</button>
       </nav>
     </div>
@@ -23,9 +22,8 @@
   <aside class="side-menu" id="sideMenu">
     <ul>
       <li><a href="/index.html">🏠 トップ</a></li>
-      <li><a href="/home.html">🔍 アイテムを探す</a></li>
       <li><a href="#loginSection">🔑 ログイン</a></li>
-      <li><a href="#loginSection">📝 新規登録</a></li>
+      <li><a href="#loginSection" onclick="switchTab('register')">📝 新規登録</a></li>
     </ul>
   </aside>
 
@@ -80,13 +78,8 @@
           <label>パスワード（6文字以上）</label>
           <input type="password" id="regPassword" placeholder="••••••">
         </div>
-        <div class="form-group">
-          <label>電話番号</label>
-          <input type="tel" id="regPhone" placeholder="09012345678">
-          <div class="hint" style="margin-top:4px">ハイフンなしで入力してください</div>
-        </div>
         <div class="error-msg" id="registerError"></div>
-        <button class="btn-primary" onclick="startRegister()">SMSで確認コードを送る</button>
+        <button class="btn-primary" onclick="startRegister()">確認メールを送る</button>
         <div class="divider">または</div>
         <button class="btn-google" onclick="loginWithGoogle()">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
@@ -94,24 +87,24 @@
         </button>
       </div>
 
-      <!-- SMS認証コード入力画面 -->
-      <div id="phoneVerifyForm" style="display:none">
+      <!-- メール確認待ち画面 -->
+      <div id="emailVerifyForm" style="display:none">
         <div class="verify-box">
-          <div class="verify-icon">📱</div>
-          <h3>SMS認証コードを入力</h3>
-          <p>携帯電話に届いた6桁のコードを入力してください。</p>
-          <div class="form-group">
-            <input type="number" id="smsCode" placeholder="6桁のコード"
-              style="text-align:center;font-size:24px;letter-spacing:8px">
-          </div>
-          <div class="error-msg" id="phoneVerifyError"></div>
-          <button class="btn-primary" onclick="verifyPhone()">認証する</button>
+          <div class="verify-icon">📧</div>
+          <h3>確認メールを送信しました</h3>
+          <p id="verifyEmailAddr" style="color:var(--accent);font-weight:bold;margin:8px 0"></p>
+          <p>上記のアドレスに確認リンクを送りました。<br>メールのリンクをクリックしてから下のボタンを押してください。</p>
+          <div class="error-msg" id="emailVerifyError"></div>
+          <button class="btn-primary" onclick="checkEmailVerified()" style="margin-top:16px">
+            認証完了 → ログインする
+          </button>
           <button class="btn-sm btn-outline" style="width:100%;margin-top:10px"
-            onclick="backToForm()">戻る</button>
+            onclick="resendVerification()">確認メールを再送する</button>
+          <button class="btn-sm btn-outline" style="width:100%;margin-top:10px"
+            onclick="backToRegister()">戻る</button>
         </div>
       </div>
 
-      <div id="recaptcha-container"></div>
     </section>
   </main>
 
@@ -124,9 +117,8 @@
       GoogleAuthProvider,
       signInWithEmailAndPassword,
       createUserWithEmailAndPassword,
-      PhoneAuthProvider,
-      RecaptchaVerifier,
-      signInWithCredential
+      sendEmailVerification,
+      reload
     } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -140,32 +132,13 @@
     const auth     = getAuth(app);
     const provider = new GoogleAuthProvider();
 
-    let confirmationResult  = null;
-    let currentMode         = 'login';
-    let pendingRegisterData = null;
-    let recaptchaVerifier   = null;
+    let pendingFirebaseUser = null;
 
-    function toE164(phone) {
-      const cleaned = phone.replace(/[-\s]/g, '');
-      if (cleaned.startsWith('0')) return '+81' + cleaned.slice(1);
-      return cleaned;
-    }
-
-    async function initRecaptcha() {
-      if (recaptchaVerifier) {
-        try { recaptchaVerifier.clear(); } catch(e) {}
-        recaptchaVerifier = null;
-      }
-      document.getElementById('recaptcha-container').innerHTML = '';
-      recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
-      await recaptchaVerifier.render();
-    }
-
-    async function sendToBackend(idToken) {
+    async function sendToBackend(idToken, extraData = {}) {
       const res  = await fetch('/api/auth/firebase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken })
+        body: JSON.stringify({ idToken, ...extraData })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
@@ -178,29 +151,27 @@
       const isLogin = tab === 'login';
       document.getElementById('loginForm').style.display       = isLogin ? '' : 'none';
       document.getElementById('registerForm').style.display    = isLogin ? 'none' : '';
-      document.getElementById('phoneVerifyForm').style.display = 'none';
+      document.getElementById('emailVerifyForm').style.display = 'none';
       document.getElementById('tabLogin').classList.toggle('active', isLogin);
       document.getElementById('tabRegister').classList.toggle('active', !isLogin);
     };
 
-    // ── 戻るボタン ────────────────────────────
-    window.backToForm = () => {
-      document.getElementById('phoneVerifyForm').style.display = 'none';
-      if (currentMode === 'register') {
-        document.getElementById('registerForm').style.display = '';
-      } else {
-        document.getElementById('loginForm').style.display = '';
-      }
+    // ── 戻る ──────────────────────────────────
+    window.backToRegister = () => {
+      document.getElementById('emailVerifyForm').style.display = 'none';
+      document.getElementById('registerForm').style.display    = '';
     };
 
     // ── Googleログイン ────────────────────────
     window.loginWithGoogle = async () => {
+      const errEl = document.getElementById('loginError');
+      errEl.textContent = '';
       try {
         const result  = await signInWithPopup(auth, provider);
         const idToken = await result.user.getIdToken();
-        await sendToBackend(idToken);
+        await sendToBackend(idToken, { username: result.user.displayName });
       } catch (err) {
-        document.getElementById('loginError').textContent = err.message;
+        errEl.textContent = 'Googleログインに失敗しました：' + err.message;
       }
     };
 
@@ -214,124 +185,97 @@
 
       try {
         const result = await signInWithEmailAndPassword(auth, email, password);
-        const phone  = result.user.phoneNumber;
-        if (phone) {
-          currentMode = 'login';
-          await initRecaptcha();
-          const phoneProvider = new PhoneAuthProvider(auth);
-          confirmationResult  = await phoneProvider.verifyPhoneNumber(phone, recaptchaVerifier);
-          document.getElementById('loginForm').style.display       = 'none';
-          document.getElementById('phoneVerifyForm').style.display = '';
-        } else {
-          const idToken = await result.user.getIdToken();
-          await sendToBackend(idToken);
+        if (!result.user.emailVerified) {
+          errEl.textContent = 'メールアドレスが未認証です。届いた確認メールのリンクをクリックしてください。';
+          return;
         }
+        const idToken = await result.user.getIdToken();
+        await sendToBackend(idToken);
       } catch (err) {
         errEl.textContent = 'メールまたはパスワードが違います';
       }
     };
 
-    // ── 新規登録 ──────────────────────────────
+    // ── 新規登録（確認メール送信） ────────────
     window.startRegister = async () => {
       const username = document.getElementById('regUsername').value.trim();
       const email    = document.getElementById('regEmail').value.trim();
       const password = document.getElementById('regPassword').value;
-      const phone    = document.getElementById('regPhone').value.trim();
       const errEl    = document.getElementById('registerError');
       errEl.textContent = '';
 
-      if (!username || !email || !password || !phone) {
+      if (!username || !email || !password) {
         errEl.textContent = '全て入力してください'; return;
       }
       if (password.length < 6) {
         errEl.textContent = 'パスワードは6文字以上にしてください'; return;
       }
 
-      const phoneE164 = toE164(phone);
-
       try {
-        await initRecaptcha();
-        const phoneProvider = new PhoneAuthProvider(auth);
-        confirmationResult  = await phoneProvider.verifyPhoneNumber(phoneE164, recaptchaVerifier);
-        currentMode         = 'register';
-        pendingRegisterData = { username, email, password };
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        pendingFirebaseUser = result.user;
+
+        // 確認メール送信
+        await sendEmailVerification(result.user);
+
+        // バックエンドに仮登録
+        await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, email, password })
+        });
+
+        // 確認待ち画面へ
+        document.getElementById('verifyEmailAddr').textContent = email;
         document.getElementById('registerForm').style.display    = 'none';
-        document.getElementById('phoneVerifyForm').style.display = '';
+        document.getElementById('emailVerifyForm').style.display = '';
+
       } catch (err) {
-        errEl.textContent = 'SMS送信失敗：' + err.message;
+        if (err.code === 'auth/email-already-in-use') {
+          errEl.textContent = 'このメールアドレスはすでに登録されています';
+        } else {
+          errEl.textContent = 'エラー：' + err.message;
+        }
       }
     };
 
-    // ── SMS認証 ───────────────────────────────
-    window.verifyPhone = async () => {
-      const code  = document.getElementById('smsCode').value.trim();
-      const errEl = document.getElementById('phoneVerifyError');
+    // ── メール認証確認 ────────────────────────
+    window.checkEmailVerified = async () => {
+      const errEl = document.getElementById('emailVerifyError');
       errEl.textContent = '';
-      if (!code) { errEl.textContent = 'コードを入力してください'; return; }
-
       try {
-        if (currentMode === 'register') {
-          const { username, email, password } = pendingRegisterData;
-
-          // ① まずEmail/Passwordでアカウント作成（またはログイン）
-          let firebaseUser;
-          try {
-            const result = await createUserWithEmailAndPassword(auth, email, password);
-            firebaseUser = result.user;
-          } catch (createErr) {
-            if (createErr.code === 'auth/email-already-in-use') {
-              const result = await signInWithEmailAndPassword(auth, email, password);
-              firebaseUser = result.user;
-            } else {
-              throw createErr;
-            }
-          }
-
-          // ② SMS認証コードの資格情報を作成してリンク（または確認のみ）
-          try {
-            const phoneCredential = PhoneAuthProvider.credential(confirmationResult, code);
-            await signInWithCredential(auth, phoneCredential);
-          } catch (phoneErr) {
-            // 電話番号認証に失敗してもEmail認証済みなら続行
-            console.warn('Phone link warning:', phoneErr.message);
-          }
-
-          // ③ バックエンドにユーザー登録
-          await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password })
-          });
-
-          const idToken = await firebaseUser.getIdToken();
-          await sendToBackend(idToken);
-        } else {
-          // ログインの場合：SMS認証を検証してからバックエンドへ
-          const credential = PhoneAuthProvider.credential(confirmationResult, code);
-          await signInWithCredential(auth, credential);
-          const idToken = await auth.currentUser.getIdToken();
-          await sendToBackend(idToken);
+        if (!pendingFirebaseUser) {
+          errEl.textContent = 'セッションが切れました。再度登録してください。';
+          return;
         }
+        await reload(pendingFirebaseUser);
+        if (!pendingFirebaseUser.emailVerified) {
+          errEl.textContent = 'まだ認証されていません。メールのリンクをクリックしてください。';
+          return;
+        }
+        const idToken = await pendingFirebaseUser.getIdToken(true);
+        await sendToBackend(idToken);
       } catch (err) {
-        if (err.message && err.message.includes('code')) {
-          errEl.textContent = 'コードが違います。もう一度確認してください。';
-        } else {
-          errEl.textContent = 'エラーが発生しました: ' + err.message;
-        }
+        errEl.textContent = 'エラー：' + err.message;
       }
     };
 
-    function isTokenValid() {
-      const token = localStorage.getItem('gt_token');
-      if (!token) return false;
+    // ── 確認メール再送 ────────────────────────
+    window.resendVerification = async () => {
+      const errEl = document.getElementById('emailVerifyError');
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        return payload.exp * 1000 > Date.now();
-      } catch (e) { return false; }
-    }
+        if (!pendingFirebaseUser) throw new Error('セッションが切れました');
+        await sendEmailVerification(pendingFirebaseUser);
+        errEl.style.color = 'var(--success)';
+        errEl.textContent = '再送しました！';
+        setTimeout(() => { errEl.textContent = ''; errEl.style.color = ''; }, 3000);
+      } catch (err) {
+        errEl.style.color = '';
+        errEl.textContent = '再送失敗：' + err.message;
+      }
+    };
 
-    // 自動リダイレクトは行わない（ユーザーが明示的にログインする）
   </script>
 
-
+</body>
 </html>
