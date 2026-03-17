@@ -403,7 +403,14 @@
         btns.push(`<button class="btn-cancel" onclick="cancel('${r._id}')">🚫 取り消す</button>`);
       }
       if (r.status === 'accepted') {
-        btns.push(`<button class="btn-complete" onclick="complete('${r._id}')">🎉 交換完了</button>`);
+        const myId = getMyId();
+        const alreadyPressed = (r.completedBy || []).some(id => id === myId || id?._id === myId || id?.toString() === myId);
+        const waitingOther   = alreadyPressed;
+        if (waitingOther) {
+          btns.push(`<button class="btn-complete" disabled style="opacity:0.5;cursor:not-allowed;">⏳ 相手の承諾待ち…</button>`);
+        } else {
+          btns.push(`<button class="btn-complete" onclick="complete('${r._id}')">🎉 交換完了</button>`);
+        }
       }
       if (r.status === 'completed') {
         const reviewPartnerId   = amSender ? r.owner?._id   : r.requester?._id;
@@ -427,8 +434,19 @@
       await apiAction(`/api/exchange/${id}/cancel`, '取り消しました');
     }
     async function complete(id) {
-      if (!confirm('交換完了にしますか？')) return;
-      await apiAction(`/api/exchange/${id}/complete`, '🎉 交換完了！');
+      if (!confirm('交換完了ボタンを押しますか？\n相手も押すと取引が完了します。')) return;
+      try {
+        const res  = await fetch(`/api/exchange/${id}/complete`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${getToken()}` }
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.message || 'エラーが発生しました'); return; }
+        alert(data.message);
+        loadAll();
+      } catch {
+        alert('通信エラーが発生しました');
+      }
     }
 
     async function apiAction(url, successMsg) {
