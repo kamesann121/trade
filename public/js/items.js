@@ -1,133 +1,242 @@
-const express  = require('express');
-const router   = express.Router();
-const multer   = require('multer');
-const path     = require('path');
-const fs       = require('fs');
-const { body, validationResult } = require('express-validator');
-const auth     = require('../middleware/auth');
-const Item     = require('../models/Item');
+if (!getToken() && !location.pathname.includes('index')) {
+  location.href = '/index.html';
+}
 
-// ── 画像アップロード設定 ────────────────────
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = 'uploads/items';
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname)}`);
-  }
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req, file, cb) => {
-    if (/image\/(jpeg|png|gif|webp)/.test(file.mimetype)) cb(null, true);
-    else cb(new Error('画像ファイルのみアップロード可能です'));
-  }
-});
+const API = '/api/items';
+const authHeader = () => ({ 'Authorization': `Bearer ${getToken()}` });
 
-// ── 出品 POST /api/items ────────────────────
-router.post('/', auth, upload.array('images', 5), [
-  body('title').trim().notEmpty().withMessage('タイトルは必須です'),
-  body('category').notEmpty(),
-  body('condition').notEmpty()
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+// ══════════════════════════════════════════════
+// HOME PAGE
+// ══════════════════════════════════════════════
+let currentPage = 1;
+
+async function searchItems(page = 1) {
+  currentPage = page;
+  const q = document.getElementById('searchInput')?.value.trim() || '';
+
+  const params = new URLSearchParams({ page, limit: 12 });
+  if (q) params.append('q', q);
+
+  const grid = document.getElementById('itemsGrid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="loading">読み込み中…</div>';
 
   try {
-    const { title, description, category, platform, condition, wantTitle, tags } = req.body;
-    const images = (req.files || []).map(f => '/' + f.path.replace(/\\/g, '/'));
-    const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const res  = await fetch(`${API}?${params}`);
+    const data = await res.json();
+    renderItems(data.items);
+    renderPagination(data.pages, page);
+  } catch {
+    grid.innerHTML = '<div class="loading">読み込みに失敗しました</div>';
+  }
+}
 
-    const item = await Item.create({
-      owner: req.user.id,
-      title, description, category, platform, condition, wantTitle,
-      images, tags: tagArray
+function renderItems(items) {
+  const grid = document.getElementById('itemsGrid');
+  if (!items.length) {
+    grid.innerHTML = '<div class="empty-state">😢 アイテムが見つかりませんでした</div>';
+    return;
+  }
+  grid.innerHTML = items.map(item => `
+    <a href="/item-detail.html?id=${item._id}" class="item-card">
+      <div class="item-img">
+        ${item.images?.[0]
+          ? `<img src="${item.images[0]}" alt="${item.title}" loading="lazy">`
+          : '<div class="no-img">🎮</div>'}
+      </div>
+      <div class="item-info">
+        <div class="item-title">${item.title}</div>
+        ${item.tags?.length
+          ? `<div class="item-tags">${item.tags.slice(0,3).map(t=>`<span class="tag">#${t}</span>`).join('')}</div>`
+          : ''}
+        ${item.wantTitle
+          ? `<div class="item-want">🔄 ${item.wantTitle}</div>`
+          : ''}
+        <div class="item-owner">
+          <span class="owner-name">@${item.owner?.username || '?'}</span>
+          <span class="owner-rating">⭐ ${item.owner?.rating?.toFixed(1) || '-'}</span>
+        </div>
+      </div>
+    </a>
+  `).join('');
+}
+
+function renderPagination(pages, current) {
+  const el = document.getElementById('pagination');
+  if (!el || pages <= 1) { if (el) el.innerHTML = ''; return; }
+  let html = '';
+  for (let i = 1; i <= pages; i++) {
+    html += `<button class="page-btn ${i === current ? 'active' : ''}"
+      onclick="searchItems(${i})">${i}</button>`;
+  }
+  el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
+// POST ITEM PAGE
+// ══════════════════════════════════════════════
+function previewImages(event) {
+  const files = Array.from(event.target.files);
+  const list  = document.getElementById('imagePreviewList');
+  list.innerHTML = '';
+  files.slice(0, 5).forEach((file, i) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      list.innerHTML += `
+        <div class="preview-img-wrap">
+          <img src="${e.target.result}" alt="preview${i}">
+        </div>`;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function postItem() {
+  const title       = document.getElementById('title')?.value.trim();
+  const description = document.getElementById('description')?.value.trim();
+  const wantTitle   = document.getElementById('wantTitle')?.value.trim();
+  const errEl       = document.getElementById('postError');
+  errEl.textContent = '';
+
+  if (!title) { errEl.textContent = 'アイテム名は必須です'; return; }
+
+  const formData = new FormData();
+  formData.append('title', title);
+  if (description) formData.append('description', description);
+  if (wantTitle)   formData.append('wantTitle', wantTitle);
+
+  const imageFiles = document.getElementById('imageInput')?.files;
+  if (imageFiles) Array.from(imageFiles).slice(0, 5).forEach(f => formData.append('images', f));
+
+  try {
+    const res  = await fetch(API, {
+      method: 'POST',
+      headers: authHeader(),
+      body: formData
     });
-    res.status(201).json(item);
-  } catch (err) {
-    res.status(500).json({ message: 'サーバーエラー', error: err.message });
-  }
-});
-
-// ── 一覧・検索 GET /api/items ───────────────
-router.get('/', async (req, res) => {
-  try {
-    const { q, category, platform, condition, status, page = 1, limit = 12 } = req.query;
-    const filter = {};
-
-    if (q) filter.$text = { $search: q };
-    if (category)  filter.category  = category;
-    if (platform)  filter.platform  = new RegExp(platform, 'i');
-    if (condition) filter.condition = condition;
-    filter.status = status || '募集中';
-
-    const skip  = (Number(page) - 1) * Number(limit);
-    const total = await Item.countDocuments(filter);
-    const items = await Item.find(filter)
-      .populate('owner', 'username avatar rating')
-      .sort({ createdAt: -1 })
-      .skip(skip).limit(Number(limit));
-
-    res.json({ items, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
-  } catch (err) {
-    res.status(500).json({ message: 'サーバーエラー' });
-  }
-});
-
-// ── 詳細 GET /api/items/:id ─────────────────
-router.get('/:id', async (req, res) => {
-  try {
-    const item = await Item.findById(req.params.id).populate('owner', 'username avatar rating ratingCount bio');
-    if (!item) return res.status(404).json({ message: 'アイテムが見つかりません' });
-    res.json(item);
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.errors?.[0]?.msg || data.message || '投稿失敗';
+      return;
+    }
+    location.href = `/item-detail.html?id=${data._id}`;
   } catch {
-    res.status(500).json({ message: 'サーバーエラー' });
+    errEl.textContent = '通信エラー';
   }
-});
+}
 
-// ── 編集 PUT /api/items/:id ─────────────────
-router.put('/:id', auth, upload.array('images', 5), async (req, res) => {
+// ══════════════════════════════════════════════
+// ITEM DETAIL PAGE
+// ══════════════════════════════════════════════
+async function loadItemDetail() {
+  const main = document.getElementById('detailMain');
+  if (!main) return;
+
+  const id = new URLSearchParams(location.search).get('id');
+  if (!id) { main.innerHTML = '<div class="loading">IDが不正です</div>'; return; }
+
   try {
-    const item = await Item.findById(req.params.id);
-    if (!item) return res.status(404).json({ message: '見つかりません' });
-    if (item.owner.toString() !== req.user.id) return res.status(403).json({ message: '権限がありません' });
+    const res  = await fetch(`${API}/${id}`);
+    const item = await res.json();
+    if (!res.ok) {
+      main.innerHTML = '<div class="loading">見つかりませんでした</div>';
+      return;
+    }
 
-    const fields = ['title','description','category','platform','condition','wantTitle','status'];
-    fields.forEach(f => { if (req.body[f] !== undefined) item[f] = req.body[f]; });
-    if (req.body.tags) item.tags = req.body.tags.split(',').map(t => t.trim()).filter(Boolean);
-    if (req.files?.length) item.images = req.files.map(f => '/' + f.path.replace(/\\/g, '/'));
+    const meRes  = await fetch('/api/auth/me', { headers: authHeader() });
+    const me     = meRes.ok ? await meRes.json() : null;
+    const isOwner = me && item.owner?._id === me._id;
 
-    await item.save();
-    res.json(item);
+    const imgHtml = item.images?.length
+      ? `<div class="detail-imgs">
+          <img src="${item.images[0]}" class="detail-main-img" id="mainImg" alt="${item.title}">
+          ${item.images.length > 1
+            ? `<div class="detail-thumbs">${item.images.map((img, i) =>
+                `<img src="${img}" onclick="document.getElementById('mainImg').src='${img}'"
+                  class="${i===0?'active':''}">`
+              ).join('')}</div>`
+            : ''}
+        </div>`
+      : `<div class="detail-imgs"><div class="no-img-large">🎮</div></div>`;
+
+    main.innerHTML = `
+      <button class="btn-sm btn-outline back-btn" onclick="history.back()">← 戻る</button>
+      <div class="detail-grid">
+        ${imgHtml}
+        <div class="detail-info">
+          <h1 class="detail-title">${item.title}</h1>
+          <div class="detail-status status-${item.status==='募集中'?'open':'closed'}">${item.status}</div>
+          ${item.description
+            ? `<p class="detail-desc">${item.description.replace(/\n/g,'<br>').replace(
+                /#([\w\u3040-\u9fff]+)/g,
+                '<span class="tag clickable" onclick="location.href=\'/home.html?q=%23$1\'">#$1</span>'
+              )}</p>`
+            : ''}
+          ${item.wantTitle
+            ? `<div class="detail-want">🔄 求めるもの：<strong>${item.wantTitle}</strong></div>`
+            : ''}
+          ${item.tags?.length
+            ? `<div class="detail-tags">${item.tags.map(t=>
+                `<span class="tag clickable" onclick="location.href='/home.html?q=%23${t}'">#${t}</span>`
+              ).join('')}</div>`
+            : ''}
+
+          <div class="detail-owner-card">
+            <div class="owner-avatar">${item.owner?.username?.[0]?.toUpperCase()||'?'}</div>
+            <div>
+              <div class="owner-name">@${item.owner?.username||'?'}</div>
+              <div class="owner-rating">⭐ ${item.owner?.rating?.toFixed(1)||'-'}
+                (${item.owner?.ratingCount||0}件)</div>
+            </div>
+          </div>
+
+          <div class="detail-actions">
+            ${isOwner
+              ? `<button class="btn-sm btn-outline" onclick="deleteItem('${item._id}')">🗑 削除</button>`
+              : item.status === '募集中'
+                ? `<button class="btn-primary"
+                    onclick="location.href='/exchange.html?id=${item._id}'">🔄 交換を申請する</button>
+                   <button class="btn-sm btn-outline"
+                    onclick="location.href='/messages.html?to=${item.owner?._id}'">💬 メッセージ</button>`
+                : `<div class="closed-note">このアイテムは現在交換受付中ではありません</div>`
+            }
+          </div>
+        </div>
+      </div>`;
   } catch {
-    res.status(500).json({ message: 'サーバーエラー' });
+    main.innerHTML = '<div class="loading">読み込みに失敗しました</div>';
   }
-});
+}
 
-// ── 削除 DELETE /api/items/:id ──────────────
-router.delete('/:id', auth, async (req, res) => {
+async function deleteItem(id) {
+  if (!confirm('本当に削除しますか？')) return;
   try {
-    const item = await Item.findById(req.params.id);
-    if (!item) return res.status(404).json({ message: '見つかりません' });
-    if (item.owner.toString() !== req.user.id) return res.status(403).json({ message: '権限がありません' });
-    await item.deleteOne();
-    res.json({ message: '削除しました' });
-  } catch {
-    res.status(500).json({ message: 'サーバーエラー' });
-  }
-});
+    const res = await fetch(`${API}/${id}`, {
+      method: 'DELETE',
+      headers: authHeader()
+    });
+    if (res.ok) location.href = '/home.html';
+    else alert('削除に失敗しました');
+  } catch { alert('通信エラー'); }
+}
 
-// ── 自分の出品一覧 GET /api/items/my/list ───
-router.get('/my/list', auth, async (req, res) => {
-  try {
-    const items = await Item.find({ owner: req.user.id }).sort({ createdAt: -1 });
-    res.json(items);
-  } catch {
-    res.status(500).json({ message: 'サーバーエラー' });
+// ── ページ判定して実行 ──────────────────────
+if (document.getElementById('itemsGrid')) {
+  // URLにqパラメータがあれば検索
+  const urlQ = new URLSearchParams(location.search).get('q');
+  if (urlQ) {
+    document.getElementById('searchInput').value = urlQ;
   }
-});
-
-module.exports = router;
+  searchItems();
+}
+if (document.getElementById('detailMain')) loadItemDetail();
+if (document.getElementById('menuBtn')) {
+  document.getElementById('menuBtn').addEventListener('click', () => {
+    document.getElementById('sideMenu').classList.toggle('open');
+    document.getElementById('overlay').classList.toggle('open');
+  });
+  document.getElementById('overlay').addEventListener('click', () => {
+    document.getElementById('sideMenu').classList.remove('open');
+    document.getElementById('overlay').classList.remove('open');
+  });
+}
