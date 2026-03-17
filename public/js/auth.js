@@ -12,17 +12,28 @@ function isTokenValid() {
     const payload = JSON.parse(atob(token.split('.')[1]));
     return payload.exp * 1000 > Date.now();
   } catch (e) {
+    clearToken(); // 壊れたトークンは削除
     return false;
   }
 }
 
-// ── 全ページ共通：未ログインならトップへ ───
+// ── ページ振り分け ───────────────────────────
 const publicPages = ['/index.html', '/'];
-const isPublicPage = publicPages.some(p => location.pathname === p || location.pathname.endsWith(p));
+const isPublicPage = publicPages.some(p =>
+  location.pathname === p || location.pathname.endsWith(p)
+);
 
-if (!isTokenValid() && !isPublicPage) {
-  clearToken();
-  location.href = '/index.html';
+if (isPublicPage) {
+  // トップページ：ログイン済みなら home へ
+  if (isTokenValid()) {
+    location.href = '/home.html';
+  }
+} else {
+  // その他：未ログインならトップへ
+  if (!isTokenValid()) {
+    clearToken();
+    location.href = '/index.html';
+  }
 }
 
 // ── ログアウト ──────────────────────────────
@@ -36,20 +47,25 @@ function initSideMenu() {
   const menuBtn = document.getElementById('menuBtn');
   const sideMenu = document.getElementById('sideMenu');
   const overlay  = document.getElementById('overlay');
-  if (menuBtn) {
-    menuBtn.addEventListener('click', () => {
-      sideMenu?.classList.toggle('open');
-      overlay?.classList.toggle('open');
-    });
-  }
-  if (overlay) {
-    overlay.addEventListener('click', () => {
-      sideMenu?.classList.remove('open');
-      overlay?.classList.remove('open');
-    });
-  }
+
+  if (!menuBtn) return; // メニューがないページはスキップ
+
+  // 重複登録防止
+  const newBtn = menuBtn.cloneNode(true);
+  menuBtn.parentNode.replaceChild(newBtn, menuBtn);
+
+  newBtn.addEventListener('click', () => {
+    sideMenu?.classList.toggle('open');
+    overlay?.classList.toggle('open');
+  });
+
+  overlay?.addEventListener('click', () => {
+    sideMenu?.classList.remove('open');
+    overlay?.classList.remove('open');
+  });
 }
 
+// DOMの状態に関係なく確実に実行
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initSideMenu);
 } else {
