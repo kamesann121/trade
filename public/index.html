@@ -33,11 +33,11 @@
     <section class="notice-box">
       <h2>⚠️ ご利用前に必ずお読みください</h2>
       <ul>
-        <li>本サイトはゲームソフト・カード・グッズなどの<strong>個人間交換</strong>を仲介するサービスです。</li>
+        <li>本サイトはゲーム内アイテムなどの<strong>個人間交換</strong>を仲介するサービスです。</li>
         <li>金銭のやり取りは一切介在しません。交換はあくまで当事者間の合意に基づきます。</li>
-        <li>違法コピー品・改造品・偽物の出品は<strong>厳禁</strong>です。発覚した場合は即時アカウント停止となります。</li>
+        <li>違法品・改造品・嘘の出品は<strong>厳禁</strong>です。発覚した場合は即時アカウント停止となります。</li>
         <li>トラブルが発生した場合、当サイトは責任を負いかねます。交換前に十分な確認をお願いします。</li>
-        <li>18歳未満の方はご利用いただけません。</li>
+        <li>詐欺には気をつけてください。</li>
       </ul>
     </section>
 
@@ -58,7 +58,7 @@
           <input type="password" id="loginPassword" placeholder="••••••">
         </div>
         <div class="error-msg" id="loginError"></div>
-        <button class="btn-primary" onclick="startLoginPhone()">ログイン</button>
+        <button class="btn-primary" onclick="startLogin()">ログイン</button>
         <div class="divider">または</div>
         <button class="btn-google" onclick="loginWithGoogle()">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
@@ -86,7 +86,7 @@
           <div class="hint" style="margin-top:4px">ハイフンなしで入力してください</div>
         </div>
         <div class="error-msg" id="registerError"></div>
-        <button class="btn-primary" onclick="startRegisterPhone()">SMSで確認コードを送る</button>
+        <button class="btn-primary" onclick="startRegister()">SMSで確認コードを送る</button>
         <div class="divider">または</div>
         <button class="btn-google" onclick="loginWithGoogle()">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
@@ -107,7 +107,7 @@
           <div class="error-msg" id="phoneVerifyError"></div>
           <button class="btn-primary" onclick="verifyPhone()">認証する</button>
           <button class="btn-sm btn-outline" style="width:100%;margin-top:10px"
-            onclick="showPrevForm()">戻る</button>
+            onclick="backToForm()">戻る</button>
         </div>
       </div>
 
@@ -139,33 +139,26 @@
     const auth     = getAuth(app);
     const provider = new GoogleAuthProvider();
 
-    let confirmationResult = null;
-    let currentMode        = 'login';
+    let confirmationResult  = null;
+    let currentMode         = 'login';
     let pendingRegisterData = null;
+    let recaptchaVerifier   = null;
 
-    // 日本の電話番号を国際形式に変換
     function toE164(phone) {
       const cleaned = phone.replace(/[-\s]/g, '');
-      if (cleaned.startsWith('0')) {
-        return '+81' + cleaned.slice(1);
-      }
+      if (cleaned.startsWith('0')) return '+81' + cleaned.slice(1);
       return cleaned;
     }
 
-    let recaptchaVerifier = null;
-
-function getRecaptcha() {
-  if (recaptchaVerifier) {
-    recaptchaVerifier.clear();
-    recaptchaVerifier = null;
-  }
-  const container = document.getElementById('recaptcha-container');
-  container.innerHTML = '';
-  recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-    size: 'invisible'
-  });
-  return recaptchaVerifier;
-}
+    async function initRecaptcha() {
+      if (recaptchaVerifier) {
+        try { recaptchaVerifier.clear(); } catch(e) {}
+        recaptchaVerifier = null;
+      }
+      document.getElementById('recaptcha-container').innerHTML = '';
+      recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+      await recaptchaVerifier.render();
+    }
 
     async function sendToBackend(idToken) {
       const res  = await fetch('/api/auth/firebase', {
@@ -179,6 +172,27 @@ function getRecaptcha() {
       location.href = '/home.html';
     }
 
+    // ── タブ切り替え ──────────────────────────
+    window.switchTab = (tab) => {
+      const isLogin = tab === 'login';
+      document.getElementById('loginForm').style.display       = isLogin ? '' : 'none';
+      document.getElementById('registerForm').style.display    = isLogin ? 'none' : '';
+      document.getElementById('phoneVerifyForm').style.display = 'none';
+      document.getElementById('tabLogin').classList.toggle('active', isLogin);
+      document.getElementById('tabRegister').classList.toggle('active', !isLogin);
+    };
+
+    // ── 戻るボタン ────────────────────────────
+    window.backToForm = () => {
+      document.getElementById('phoneVerifyForm').style.display = 'none';
+      if (currentMode === 'register') {
+        document.getElementById('registerForm').style.display = '';
+      } else {
+        document.getElementById('loginForm').style.display = '';
+      }
+    };
+
+    // ── Googleログイン ────────────────────────
     window.loginWithGoogle = async () => {
       try {
         const result  = await signInWithPopup(auth, provider);
@@ -189,7 +203,8 @@ function getRecaptcha() {
       }
     };
 
-    window.startLoginPhone = async () => {
+    // ── ログイン ──────────────────────────────
+    window.startLogin = async () => {
       const email    = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
       const errEl    = document.getElementById('loginError');
@@ -199,12 +214,11 @@ function getRecaptcha() {
       try {
         const result = await signInWithEmailAndPassword(auth, email, password);
         const phone  = result.user.phoneNumber;
-
         if (phone) {
           currentMode = 'login';
-          const recaptcha = getRecaptcha();
+          await initRecaptcha();
           const phoneProvider = new PhoneAuthProvider(auth);
-          confirmationResult = await phoneProvider.verifyPhoneNumber(phone, recaptcha);
+          confirmationResult  = await phoneProvider.verifyPhoneNumber(phone, recaptchaVerifier);
           document.getElementById('loginForm').style.display       = 'none';
           document.getElementById('phoneVerifyForm').style.display = '';
         } else {
@@ -216,51 +230,28 @@ function getRecaptcha() {
       }
     };
 
-    window.startRegisterPhone = async () => {
-  const username = document.getElementById('regUsername').value.trim();
-  const email    = document.getElementById('regEmail').value.trim();
-  const password = document.getElementById('regPassword').value;
-  const phone    = document.getElementById('regPhone').value.trim();
-  const errEl    = document.getElementById('registerError');
-  errEl.textContent = '';
+    // ── 新規登録 ──────────────────────────────
+    window.startRegister = async () => {
+      const username = document.getElementById('regUsername').value.trim();
+      const email    = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const phone    = document.getElementById('regPhone').value.trim();
+      const errEl    = document.getElementById('registerError');
+      errEl.textContent = '';
 
-  if (!username || !email || !password || !phone) {
-    errEl.textContent = '全て入力してください'; return;
-  }
-  if (password.length < 6) {
-    errEl.textContent = 'パスワードは6文字以上にしてください'; return;
-  }
+      if (!username || !email || !password || !phone) {
+        errEl.textContent = '全て入力してください'; return;
+      }
+      if (password.length < 6) {
+        errEl.textContent = 'パスワードは6文字以上にしてください'; return;
+      }
 
-  const phoneE164 = toE164(phone);
+      const phoneE164 = toE164(phone);
 
-  try {
-    // reCAPTCHAを完全にリセット
-    if (recaptchaVerifier) {
-      try { recaptchaVerifier.clear(); } catch(e) {}
-      recaptchaVerifier = null;
-    }
-    document.getElementById('recaptcha-container').innerHTML = '';
-
-    recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      size: 'invisible',
-      callback: () => {}
-    });
-    await recaptchaVerifier.render();
-
-    const phoneProvider = new PhoneAuthProvider(auth);
-    confirmationResult  = await phoneProvider.verifyPhoneNumber(phoneE164, recaptchaVerifier);
-    currentMode         = 'register';
-    pendingRegisterData = { username, email, password };
-    document.getElementById('registerForm').style.display    = 'none';
-    document.getElementById('phoneVerifyForm').style.display = '';
-  } catch (err) {
-    errEl.textContent = 'SMS送信失敗：' + err.message;
-    if (recaptchaVerifier) {
-      try { recaptchaVerifier.clear(); } catch(e) {}
-      recaptchaVerifier = null;
-    }
-  }
-};
+      try {
+        await initRecaptcha();
+        const phoneProvider = new PhoneAuthProvider(auth);
+        confirmationResult  = await phoneProvider.verifyPhoneNumber(phoneE164, recaptchaVerifier);
         currentMode         = 'register';
         pendingRegisterData = { username, email, password };
         document.getElementById('registerForm').style.display    = 'none';
@@ -270,6 +261,7 @@ function getRecaptcha() {
       }
     };
 
+    // ── SMS認証 ───────────────────────────────
     window.verifyPhone = async () => {
       const code  = document.getElementById('smsCode').value.trim();
       const errEl = document.getElementById('phoneVerifyError');
@@ -278,10 +270,10 @@ function getRecaptcha() {
 
       try {
         const credential = PhoneAuthProvider.credential(confirmationResult, code);
+        await signInWithCredential(auth, credential);
 
         if (currentMode === 'register') {
           const { username, email, password } = pendingRegisterData;
-          await signInWithCredential(auth, credential);
           const result = await createUserWithEmailAndPassword(auth, email, password);
           await fetch('/api/auth/register', {
             method: 'POST',
@@ -291,33 +283,13 @@ function getRecaptcha() {
           const idToken = await result.user.getIdToken();
           await sendToBackend(idToken);
         } else {
-          await signInWithCredential(auth, credential);
-          const user    = auth.currentUser;
-          const idToken = await user.getIdToken();
+          const idToken = await auth.currentUser.getIdToken();
           await sendToBackend(idToken);
         }
       } catch (err) {
         errEl.textContent = 'コードが違います。もう一度確認してください。';
       }
     };
-
-    window.showPrevForm = () => {
-      document.getElementById('phoneVerifyForm').style.display = 'none';
-      if (currentMode === 'register') {
-        document.getElementById('registerForm').style.display = '';
-      } else {
-        document.getElementById('loginForm').style.display = '';
-      }
-    };
-
-    window.switchTab = (tab) => {
-  const isLogin = tab === 'login';
-  document.getElementById('loginForm').style.display       = isLogin ? '' : 'none';
-  document.getElementById('registerForm').style.display    = isLogin ? 'none' : '';
-  document.getElementById('phoneVerifyForm').style.display = 'none';
-  document.getElementById('tabLogin').classList.toggle('active', isLogin);
-  document.getElementById('tabRegister').classList.toggle('active', !isLogin);
-};
 
     if (localStorage.getItem('gt_token')) location.href = '/home.html';
   </script>
