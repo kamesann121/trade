@@ -311,13 +311,13 @@ function getRecaptcha() {
     };
 
     window.switchTab = (tab) => {
-      const isLogin = tab === 'login';
-      document.getElementById('loginForm').style.display       = isLogin ? '' : 'none';
-      document.getElementById('registerForm').style.display    = isLogin ? 'none' : '';
-      document.getElementById('phoneVerifyForm').style.display = 'none';
-      document.getElementById('tabLogin').classList.toggle('active', isLogin);
-      document.getElementById('tabRegister').classList.toggle('active', !isLogin);
-    };
+  const isLogin = tab === 'login';
+  document.getElementById('loginForm').style.display       = isLogin ? '' : 'none';
+  document.getElementById('registerForm').style.display    = isLogin ? 'none' : '';
+  document.getElementById('phoneVerifyForm').style.display = 'none';
+  document.getElementById('tabLogin').classList.toggle('active', isLogin);
+  document.getElementById('tabRegister').classList.toggle('active', !isLogin);
+};
 
     if (localStorage.getItem('gt_token')) location.href = '/home.html';
   </script>
