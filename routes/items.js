@@ -26,21 +26,24 @@ const upload = multer({
   }
 });
 
+// ── 出品 ────────────────────────────────────
 router.post('/', auth, upload.array('images', 5), [
-  body('title').trim().notEmpty().withMessage('タイトルは必須です'),
-  body('category').notEmpty(),
-  body('condition').notEmpty()
+  body('title').trim().notEmpty().withMessage('タイトルは必須です')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   try {
-    const { title, description, category, platform, condition, wantTitle, tags } = req.body;
+    const { title, description, wantTitle } = req.body;
     const images = (req.files || []).map(f => '/' + f.path.replace(/\\/g, '/'));
-    const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+    // descriptionから#タグを自動抽出
+    const tagMatches = (description || '').match(/#[\w\u3040-\u9fff]+/g) || [];
+    const tags = tagMatches.map(t => t.slice(1).toLowerCase());
+
     const item = await Item.create({
       owner: req.user.id,
-      title, description, category, platform, condition, wantTitle,
-      images, tags: tagArray
+      title, description, wantTitle,
+      images, tags
     });
     res.status(201).json(item);
   } catch (err) {
@@ -48,27 +51,42 @@ router.post('/', auth, upload.array('images', 5), [
   }
 });
 
+// ── 一覧・検索 ───────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { q, category, platform, condition, status, page = 1, limit = 12 } = req.query;
-    const filter = {};
-    if (q) filter.$text = { $search: q };
-    if (category)  filter.category  = category;
-    if (platform)  filter.platform  = new RegExp(platform, 'i');
-    if (condition) filter.condition = condition;
-    filter.status = status || '募集中';
+    const { q, page = 1, limit = 12 } = req.query;
+    const filter = { status: '募集中' };
+
+    if (q) {
+      const keyword = q.startsWith('#') ? q.slice(1).toLowerCase() : q;
+      if (q.startsWith('#')) {
+        // タグ検索
+        filter.tags = keyword;
+      } else {
+        // テキスト検索
+        filter.$or = [
+          { title:       new RegExp(keyword, 'i') },
+          { description: new RegExp(keyword, 'i') },
+          { wantTitle:   new RegExp(keyword, 'i') },
+          { tags:        keyword.toLowerCase() }
+        ];
+      }
+    }
+
     const skip  = (Number(page) - 1) * Number(limit);
     const total = await Item.countDocuments(filter);
     const items = await Item.find(filter)
       .populate('owner', 'username avatar rating')
       .sort({ createdAt: -1 })
       .skip(skip).limit(Number(limit));
+
     res.json({ items, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
   } catch (err) {
     res.status(500).json({ message: 'サーバーエラー' });
   }
 });
 
+// ── 自分の出品一覧 ───────────────────────────
 router.get('/my/list', auth, async (req, res) => {
   try {
     const items = await Item.find({ owner: req.user.id }).sort({ createdAt: -1 });
@@ -78,9 +96,11 @@ router.get('/my/list', auth, async (req, res) => {
   }
 });
 
+// ── 詳細 ────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
-    const item = await Item.findById(req.params.id).populate('owner', 'username avatar rating ratingCount bio');
+    const item = await Item.findById(req.params.id)
+      .populate('owner', 'username avatar rating ratingCount bio');
     if (!item) return res.status(404).json({ message: 'アイテムが見つかりません' });
     res.json(item);
   } catch {
@@ -88,15 +108,23 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// ── 編集 ────────────────────────────────────
 router.put('/:id', auth, upload.array('images', 5), async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
     if (!item) return res.status(404).json({ message: '見つかりません' });
-    if (item.owner.toString() !== req.user.id) return res.status(403).json({ message: '権限がありません' });
-    const fields = ['title','description','category','platform','condition','wantTitle','status'];
+    if (item.owner.toString() !== req.user.id)
+      return res.status(403).json({ message: '権限がありません' });
+
+    const fields = ['title', 'description', 'wantTitle', 'status'];
     fields.forEach(f => { if (req.body[f] !== undefined) item[f] = req.body[f]; });
-    if (req.body.tags) item.tags = req.body.tags.split(',').map(t => t.trim()).filter(Boolean);
+
+    if (req.body.description) {
+      const tagMatches = req.body.description.match(/#[\w\u3040-\u9fff]+/g) || [];
+      item.tags = tagMatches.map(t => t.slice(1).toLowerCase());
+    }
     if (req.files?.length) item.images = req.files.map(f => '/' + f.path.replace(/\\/g, '/'));
+
     await item.save();
     res.json(item);
   } catch {
@@ -104,11 +132,13 @@ router.put('/:id', auth, upload.array('images', 5), async (req, res) => {
   }
 });
 
+// ── 削除 ────────────────────────────────────
 router.delete('/:id', auth, async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
     if (!item) return res.status(404).json({ message: '見つかりません' });
-    if (item.owner.toString() !== req.user.id) return res.status(403).json({ message: '権限がありません' });
+    if (item.owner.toString() !== req.user.id)
+      return res.status(403).json({ message: '権限がありません' });
     await item.deleteOne();
     res.json({ message: '削除しました' });
   } catch {
