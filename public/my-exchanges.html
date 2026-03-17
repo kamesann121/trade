@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameTrade - 交換管理</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    .ex-page { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+    .ex-page-title { font-size: 20px; font-weight: 900; margin-bottom: 20px; }
+
+    /* タブ */
+    .ex-tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+    .ex-tab {
+      padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 700;
+      cursor: pointer; border: 1.5px solid var(--border);
+      background: var(--bg); color: var(--text-sub); transition: all 0.2s;
+    }
+    .ex-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .ex-tab-badge {
+      display: inline-block; background: var(--accent2); color: #fff;
+      font-size: 10px; border-radius: 10px; padding: 1px 6px; margin-left: 4px;
+    }
+
+    /* カード */
+    .ex-card {
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 14px;
+      box-shadow: var(--shadow); transition: border-color 0.2s;
+    }
+    .ex-card:hover { border-color: var(--accent); }
+
+    /* アイテム行 */
+    .ex-items-row {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+    }
+    .ex-item-box { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .ex-thumb {
+      width: 64px; height: 64px; border-radius: 10px; flex-shrink: 0;
+      overflow: hidden; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; font-size: 26px;
+    }
+    .ex-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .ex-item-info { min-width: 0; }
+    .ex-item-label { font-size: 10px; color: var(--text-sub); margin-bottom: 2px; }
+    .ex-item-name {
+      font-size: 13px; font-weight: 700; line-height: 1.4;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ex-arrow { font-size: 22px; color: var(--accent); flex-shrink: 0; }
+
+    /* メタ行 */
+    .ex-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
+      padding-top: 12px; border-top: 1px solid var(--border);
+    }
+    .ex-meta-left { display: flex; align-items: center; gap: 10px; }
+    .ex-user {
+      display: flex; align-items: center; gap: 6px; font-size: 12px;
+      color: var(--text-sub); cursor: pointer; text-decoration: none;
+    }
+    .ex-user:hover { color: var(--accent); }
+    .ex-user-avatar {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--accent); display: flex; align-items: center;
+      justify-content: center; font-size: 10px; font-weight: 700; color: #fff;
+      overflow: hidden; flex-shrink: 0;
+    }
+    .ex-user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .ex-date { font-size: 11px; color: var(--text-sub); }
+
+    /* ステータスバッジ */
+    .ex-status {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    }
+    .status-pending   { background: rgba(201,127,0,0.12);  color: var(--warning); }
+    .status-accepted  { background: rgba(46,158,94,0.12);  color: var(--success); }
+    .status-completed { background: rgba(124,92,252,0.12); color: var(--accent); }
+    .status-rejected  { background: rgba(224,60,60,0.12);  color: var(--danger); }
+    .status-cancelled { background: rgba(107,107,138,0.12);color: var(--text-sub); }
+
+    /* アクションボタン行 */
+    .ex-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .ex-actions button {
+      padding: 7px 16px; border-radius: 8px; font-size: 13px;
+      font-weight: 700; cursor: pointer; border: none; transition: opacity 0.2s;
+    }
+    .ex-actions button:hover { opacity: 0.8; }
+    .btn-accept   { background: var(--success); color: #fff; }
+    .btn-reject   { background: var(--danger);  color: #fff; }
+    .btn-cancel   { background: var(--text-sub); color: #fff; }
+    .btn-complete { background: var(--accent);  color: #fff; }
+    .btn-chat     { background: var(--bg); border: 1.5px solid var(--border) !important; color: var(--text); }
+    .btn-review   { background: var(--warning); color: #fff; }
+
+    /* メッセージプレビュー */
+    .ex-msg-preview {
+      font-size: 12px; color: var(--text-sub);
+      background: var(--bg); border-radius: 6px; padding: 8px 12px;
+      margin-bottom: 10px; line-height: 1.6;
+    }
+    .ex-msg-preview::before { content: '💬 '; }
+
+    /* チャットモーダル */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); z-index: 500;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .chat-modal {
+      background: var(--card); border-radius: var(--radius);
+      width: 100%; max-width: 500px; height: 560px;
+      display: flex; flex-direction: column;
+      margin: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+    }
+    .chat-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+      font-weight: 700; font-size: 15px;
+    }
+    .chat-close-btn {
+      background: none; border: none; font-size: 20px;
+      cursor: pointer; color: var(--text-sub); line-height: 1;
+    }
+    .chat-modal-msgs {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 10px;
+      background: var(--bg);
+    }
+    .chat-modal-input {
+      display: flex; gap: 8px; padding: 12px 14px;
+      border-top: 1px solid var(--border);
+    }
+    .chat-modal-input textarea {
+      flex: 1; padding: 9px 12px;
+      background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: 10px; color: var(--text); font-size: 14px;
+      resize: none; outline: none; font-family: inherit; line-height: 1.5;
+      max-height: 80px;
+    }
+    .chat-modal-input textarea:focus { border-color: var(--accent); }
+    .chat-send-btn {
+      padding: 9px 16px; background: var(--accent); color: #fff;
+      border: none; border-radius: 10px; cursor: pointer; font-size: 15px;
+      align-self: flex-end;
+    }
+
+    /* レビューモーダル */
+    .review-modal {
+      background: var(--card); border-radius: var(--radius);
+      width: 100%; max-width: 440px;
+      margin: 16px; padding: 24px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+    }
+    .review-modal h3 { font-size: 17px; font-weight: 900; margin-bottom: 16px; }
+    .star-row { display: flex; gap: 6px; margin-bottom: 16px; }
+    .star-pick { font-size: 32px; cursor: pointer; transition: transform 0.1s; }
+    .star-pick:hover { transform: scale(1.2); }
+    .review-modal textarea {
+      width: 100%; padding: 10px 14px;
+      background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 14px;
+      resize: none; font-family: inherit; outline: none; margin-bottom: 12px;
+    }
+    .review-modal-actions { display: flex; gap: 10px; }
+    .review-modal-actions button { flex: 1; padding: 11px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-sub); }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="/home.html" class="logo">🎮 GameTrade</a>
+      <nav class="header-right">
+        <span class="notif-icon" onclick="location.href='/notifications.html'" style="cursor:pointer">🔔
+          <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        </span>
+        <button class="menu-btn" id="menuBtn">☰</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="side-menu" id="sideMenu">
+    <ul>
+      <li><a href="/home.html">🏠 ホーム</a></li>
+      <li><a href="/post-item.html">➕ 出品する</a></li>
+      <li><a href="/my-exchanges.html">🔄 交換管理</a></li>
+      <li><a href="/messages.html">💬 メッセージ</a></li>
+      <li><a href="/notifications.html">🔔 通知</a></li>
+      <li><a href="/profile.html">👤 プロフィール</a></li>
+      <li><a href="#" onclick="logout()">🚪 ログアウト</a></li>
+    </ul>
+  </aside>
+
+  <!-- チャットモーダル -->
+  <div class="modal-overlay" id="chatModal">
+    <div class="chat-modal">
+      <div class="chat-modal-header">
+        <span id="chatModalTitle">💬 チャット</span>
+        <button class="chat-close-btn" onclick="closeChat()">✕</button>
+      </div>
+      <div class="chat-modal-msgs" id="chatModalMsgs"></div>
+      <div class="chat-modal-input">
+        <textarea id="chatInput" placeholder="メッセージを入力…" rows="2"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+        <button class="chat-send-btn" onclick="sendChat()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- レビューモーダル -->
+  <div class="modal-overlay" id="reviewModal">
+    <div class="review-modal">
+      <h3>⭐ レビューを書く</h3>
+      <div class="star-row" id="starRow">
+        <span class="star-pick" onclick="setStars(1)">☆</span>
+        <span class="star-pick" onclick="setStars(2)">☆</span>
+        <span class="star-pick" onclick="setStars(3)">☆</span>
+        <span class="star-pick" onclick="setStars(4)">☆</span>
+        <span class="star-pick" onclick="setStars(5)">☆</span>
+      </div>
+      <textarea id="reviewComment" rows="4" placeholder="交換の感想を書いてください（任意）"></textarea>
+      <div class="error-msg" id="reviewError"></div>
+      <div class="review-modal-actions">
+        <button onclick="submitReview()" style="background:var(--accent);color:#fff;">送信する</button>
+        <button onclick="closeReview()" style="background:var(--bg);border:1.5px solid var(--border);color:var(--text);">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="ex-page">
+    <div class="ex-page-title">🔄 交換管理</div>
+
+    <div class="ex-tabs">
+      <button class="ex-tab active" id="tab-received" onclick="switchTab('received')">
+        受けた申請 <span class="ex-tab-badge" id="badge-received" style="display:none">0</span>
+      </button>
+      <button class="ex-tab" id="tab-sent" onclick="switchTab('sent')">
+        送った申請 <span class="ex-tab-badge" id="badge-sent" style="display:none">0</span>
+      </button>
+      <button class="ex-tab" id="tab-history" onclick="switchTab('history')">
+        完了・履歴
+      </button>
+    </div>
+
+    <div id="exList"><div class="loading">読み込み中…</div></div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/notifications.js"></script>
+  <script>
+    if (!getToken()) location.href = '/index.html';
+
+    let currentTab    = 'received';
+    let currentChatTo = null;
+    let currentReviewData = null;
+    let reviewStars   = 0;
+    let chatPollTimer = null;
+    let allReceived   = [];
+    let allSent       = [];
+
+    const statusLabel = {
+      pending:   '⏳ 待機中',
+      accepted:  '✅ 承認済み',
+      completed: '🎉 完了',
+      rejected:  '❌ 拒否',
+      cancelled: '🚫 キャンセル'
+    };
+    const statusClass = {
+      pending: 'status-pending', accepted: 'status-accepted',
+      completed: 'status-completed', rejected: 'status-rejected', cancelled: 'status-cancelled'
+    };
+
+    // ── タブ切り替え ──────────────────────────
+    function switchTab(tab) {
+      currentTab = tab;
+      ['received','sent','history'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+      });
+      renderList();
+    }
+
+    // ── データ読み込み ────────────────────────
+    async function loadAll() {
+      try {
+        const [rRes, sRes] = await Promise.all([
+          fetch('/api/exchange/received', { headers: { Authorization: `Bearer ${getToken()}` } }),
+          fetch('/api/exchange/sent',     { headers: { Authorization: `Bearer ${getToken()}` } })
+        ]);
+        allReceived = await rRes.json();
+        allSent     = await sRes.json();
+
+        // バッジ更新
+        const pendingR = allReceived.filter(r => r.status === 'pending').length;
+        const pendingS = allSent.filter(r => r.status === 'pending').length;
+        const badgeR = document.getElementById('badge-received');
+        const badgeS = document.getElementById('badge-sent');
+        badgeR.textContent = pendingR; badgeR.style.display = pendingR ? '' : 'none';
+        badgeS.textContent = pendingS; badgeS.style.display = pendingS ? '' : 'none';
+
+        renderList();
+      } catch {
+        document.getElementById('exList').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div>読み込みに失敗しました</div>';
+      }
+    }
+
+    // ── 一覧レンダリング ──────────────────────
+    function renderList() {
+      const list = document.getElementById('exList');
+      let items;
+      if (currentTab === 'received') {
+        items = allReceived.filter(r => !['completed','rejected','cancelled'].includes(r.status));
+      } else if (currentTab === 'sent') {
+        items = allSent.filter(r => !['completed','rejected','cancelled'].includes(r.status));
+      } else {
+        // 履歴：完了・拒否・キャンセル
+        const done = [
+          ...allReceived.filter(r => ['completed','rejected','cancelled'].includes(r.status)),
+          ...allSent.filter(r => ['completed','rejected','cancelled'].includes(r.status))
+        ].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        items = done;
+      }
+
+      if (!items.length) {
+        list.innerHTML = `<div class="empty-state"><div class="empty-icon">${currentTab === 'history' ? '📜' : '📭'}</div>${currentTab === 'history' ? '完了・履歴はまだありません' : '申請はまだありません'}</div>`;
+        return;
+      }
+      list.innerHTML = items.map(r => renderCard(r)).join('');
+    }
+
+    function renderCard(r) {
+      const isSent    = r.requester?._id === undefined
+        ? allSent.some(s => s._id === r._id)
+        : true; // populateされてる場合
+      const amSender  = allSent.some(s => s._id === r._id);
+      const partner   = amSender ? r.owner : r.requester;
+      const myItem    = amSender ? r.offerItem  : r.targetItem;
+      const theirItem = amSender ? r.targetItem : r.offerItem;
+      const date      = new Date(r.createdAt).toLocaleDateString('ja-JP');
+
+      const avatarHtml = partner?.avatar
+        ? `<img src="${partner.avatar}">`
+        : (partner?.username?.[0] || '?').toUpperCase();
+
+      const actions = buildActions(r, amSender);
+
+      return `
+        <div class="ex-card" id="card-${r._id}">
+          <div class="ex-items-row">
+            <div class="ex-item-box">
+              <div class="ex-thumb">${myItem?.images?.[0] ? `<img src="${myItem.images[0]}">` : '🎮'}</div>
+              <div class="ex-item-info">
+                <div class="ex-item-label">自分のアイテム</div>
+                <div class="ex-item-name">${myItem?.title || '不明'}</div>
+              </div>
+            </div>
+            <div class="ex-arrow">⇄</div>
+            <div class="ex-item-box">
+              <div class="ex-thumb">${theirItem?.images?.[0] ? `<img src="${theirItem.images[0]}">` : '🎮'}</div>
+              <div class="ex-item-info">
+                <div class="ex-item-label">相手のアイテム</div>
+                <div class="ex-item-name">${theirItem?.title || '不明'}</div>
+              </div>
+            </div>
+          </div>
+          ${r.message ? `<div class="ex-msg-preview">${escHtml(r.message)}</div>` : ''}
+          <div class="ex-meta">
+            <div class="ex-meta-left">
+              <a class="ex-user" href="/profile.html?id=${partner?._id}">
+                <div class="ex-user-avatar">${avatarHtml}</div>
+                ${escHtml(partner?.username || '不明')}
+              </a>
+              <span class="ex-date">${date}</span>
+            </div>
+            <span class="ex-status ${statusClass[r.status]}">${statusLabel[r.status]}</span>
+          </div>
+          ${actions ? `<div class="ex-actions">${actions}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function buildActions(r, amSender) {
+      const btns = [];
+      // チャットボタン（常に表示）
+      const partnerId = amSender ? r.owner?._id : r.requester?._id;
+      const partnerName = amSender ? r.owner?.username : r.requester?.username;
+      if (partnerId) {
+        btns.push(`<button class="btn-chat" onclick="openChat('${partnerId}','${escHtml(partnerName)}')">💬 チャット</button>`);
+      }
+
+      if (r.status === 'pending' && !amSender) {
+        btns.push(`<button class="btn-accept" onclick="accept('${r._id}')">✅ 承認する</button>`);
+        btns.push(`<button class="btn-reject" onclick="reject('${r._id}')">❌ 拒否する</button>`);
+      }
+      if (r.status === 'pending' && amSender) {
+        btns.push(`<button class="btn-cancel" onclick="cancel('${r._id}')">🚫 取り消す</button>`);
+      }
+      if (r.status === 'accepted') {
+        btns.push(`<button class="btn-complete" onclick="complete('${r._id}')">🎉 交換完了</button>`);
+      }
+      if (r.status === 'completed') {
+        const reviewPartnerId   = amSender ? r.owner?._id   : r.requester?._id;
+        const reviewPartnerName = amSender ? r.owner?.username : r.requester?.username;
+        btns.push(`<button class="btn-review" onclick="openReview('${r._id}','${reviewPartnerId}','${escHtml(reviewPartnerName)}')">⭐ レビューを書く</button>`);
+      }
+      return btns.join('');
+    }
+
+    // ── 申請操作 ──────────────────────────────
+    async function accept(id) {
+      if (!confirm('この申請を承認しますか？')) return;
+      await apiAction(`/api/exchange/${id}/accept`, '承認しました！');
+    }
+    async function reject(id) {
+      if (!confirm('この申請を拒否しますか？')) return;
+      await apiAction(`/api/exchange/${id}/reject`, '拒否しました');
+    }
+    async function cancel(id) {
+      if (!confirm('申請を取り消しますか？')) return;
+      await apiAction(`/api/exchange/${id}/cancel`, '取り消しました');
+    }
+    async function complete(id) {
+      if (!confirm('交換完了にしますか？')) return;
+      await apiAction(`/api/exchange/${id}/complete`, '🎉 交換完了！');
+    }
+
+    async function apiAction(url, successMsg) {
+      try {
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${getToken()}` }
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          alert(d.message || 'エラーが発生しました');
+          return;
+        }
+        alert(successMsg);
+        loadAll();
+      } catch {
+        alert('通信エラーが発生しました');
+      }
+    }
+
+    // ── チャット ──────────────────────────────
+    function openChat(userId, userName) {
+      currentChatTo = userId;
+      document.getElementById('chatModalTitle').textContent = `💬 ${userName}`;
+      document.getElementById('chatModal').classList.add('open');
+      loadChatMsgs();
+      chatPollTimer = setInterval(loadChatMsgs, 5000);
+    }
+    function closeChat() {
+      document.getElementById('chatModal').classList.remove('open');
+      clearInterval(chatPollTimer);
+      currentChatTo = null;
+    }
+    async function loadChatMsgs() {
+      if (!currentChatTo) return;
+      try {
+        const res  = await fetch(`/api/messages/${currentChatTo}`, {
+          headers: { Authorization: `Bearer ${getToken()}` }
+        });
+        const msgs = await res.json();
+        const container = document.getElementById('chatModalMsgs');
+        const myId = getMyId();
+        if (!msgs.length) {
+          container.innerHTML = '<div style="text-align:center;color:var(--text-sub);font-size:13px;margin-top:20px">まだメッセージはありません</div>';
+          return;
+        }
+        container.innerHTML = msgs.map(m => {
+          const isMine = m.sender?._id === myId || m.sender === myId;
+          return `
+            <div class="msg-row ${isMine ? 'mine' : 'theirs'}">
+              ${!isMine ? `<div class="msg-avatar">${(m.sender?.username?.[0] || '?').toUpperCase()}</div>` : ''}
+              <div class="msg-bubble">
+                <div class="msg-text">${escHtml(m.text)}</div>
+                <div class="msg-time">${new Date(m.createdAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        container.scrollTop = container.scrollHeight;
+      } catch {}
+    }
+    async function sendChat() {
+      const input = document.getElementById('chatInput');
+      const text  = input.value.trim();
+      if (!text || !currentChatTo) return;
+      input.value = '';
+      try {
+        await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+          body: JSON.stringify({ receiverId: currentChatTo, text })
+        });
+        loadChatMsgs();
+      } catch {}
+    }
+
+    // ── レビュー ──────────────────────────────
+    function openReview(exchangeId, revieweeId, revieweeName) {
+      reviewStars = 0;
+      currentReviewData = { exchangeId, revieweeId };
+      document.querySelector('.review-modal h3').textContent = `⭐ ${revieweeName} へのレビュー`;
+      document.getElementById('reviewComment').value = '';
+      document.getElementById('reviewError').textContent = '';
+      setStars(0);
+      document.getElementById('reviewModal').classList.add('open');
+    }
+    function closeReview() {
+      document.getElementById('reviewModal').classList.remove('open');
+      currentReviewData = null;
+    }
+    function setStars(n) {
+      reviewStars = n;
+      document.querySelectorAll('.star-pick').forEach((el, i) => {
+        el.textContent = i < n ? '⭐' : '☆';
+      });
+    }
+    async function submitReview() {
+      const errEl = document.getElementById('reviewError');
+      errEl.textContent = '';
+      if (!reviewStars) { errEl.textContent = '星を選んでください'; return; }
+      const comment = document.getElementById('reviewComment').value.trim();
+      try {
+        const res = await fetch('/api/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+          body: JSON.stringify({
+            reviewee:   currentReviewData.revieweeId,
+            exchangeId: currentReviewData.exchangeId,
+            rating:     reviewStars,
+            comment
+          })
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          errEl.textContent = d.message || '送信に失敗しました';
+          return;
+        }
+        alert('レビューを送信しました！');
+        closeReview();
+      } catch {
+        errEl.textContent = '通信エラーが発生しました';
+      }
+    }
+
+    // ── ユーティリティ ────────────────────────
+    function escHtml(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function getMyId() {
+      try {
+        return JSON.parse(atob(getToken().split('.')[1])).id;
+      } catch { return null; }
+    }
+
+    // モーダル外クリックで閉じる
+    document.getElementById('chatModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('chatModal')) closeChat();
+    });
+    document.getElementById('reviewModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('reviewModal')) closeReview();
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>
