@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameTrade - 交換申請</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    .ex-apply-page { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+    .ex-apply-title { font-size: 20px; font-weight: 900; margin-bottom: 20px; }
+
+    /* 相手のアイテム */
+    .target-card {
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 16px;
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 24px; box-shadow: var(--shadow);
+    }
+    .target-thumb {
+      width: 72px; height: 72px; border-radius: 10px; flex-shrink: 0;
+      overflow: hidden; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; font-size: 28px;
+    }
+    .target-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .target-info { min-width: 0; }
+    .target-label { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; }
+    .target-title { font-size: 15px; font-weight: 900; }
+    .target-owner { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+
+    /* 提供アイテム選択 */
+    .section-label {
+      font-size: 14px; font-weight: 700; margin-bottom: 12px;
+      padding-bottom: 8px; border-bottom: 2px solid var(--border);
+    }
+    .offer-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+    .offer-card {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--card); border: 2px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .offer-card:hover { border-color: var(--accent); }
+    .offer-card.selected { border-color: var(--accent); background: rgba(124,92,252,0.06); }
+    .offer-thumb {
+      width: 52px; height: 52px; border-radius: 8px; flex-shrink: 0;
+      overflow: hidden; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .offer-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .offer-info { flex: 1; min-width: 0; }
+    .offer-title { font-size: 13px; font-weight: 700; }
+    .offer-status { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+    .offer-check {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .offer-card.selected .offer-check { opacity: 1; }
+
+    .no-items {
+      text-align: center; padding: 32px; color: var(--text-sub);
+      background: var(--card); border-radius: var(--radius);
+      border: 1.5px solid var(--border); margin-bottom: 24px;
+    }
+
+    /* メッセージ */
+    .msg-section { margin-bottom: 24px; }
+    .msg-section textarea {
+      width: 100%; padding: 12px 14px;
+      background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: 10px; color: var(--text); font-size: 14px;
+      resize: none; font-family: inherit; outline: none; line-height: 1.6;
+      transition: border-color 0.2s;
+    }
+    .msg-section textarea:focus { border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="/home.html" class="logo">🎮 GameTrade</a>
+      <nav class="header-right">
+        <button class="menu-btn" id="menuBtn">☰</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="side-menu" id="sideMenu">
+    <ul>
+      <li><a href="/home.html">🏠 ホーム</a></li>
+      <li><a href="/post-item.html">➕ 出品する</a></li>
+      <li><a href="/my-exchanges.html">🔄 交換管理</a></li>
+      <li><a href="/messages.html">💬 メッセージ</a></li>
+      <li><a href="/notifications.html">🔔 通知</a></li>
+      <li><a href="/profile.html">👤 プロフィール</a></li>
+      <li><a href="#" onclick="logout()">🚪 ログアウト</a></li>
+    </ul>
+  </aside>
+
+  <main class="ex-apply-page">
+    <div class="ex-apply-title">🔄 交換を申請する</div>
+
+    <!-- 相手のアイテム -->
+    <div class="section-label">📦 交換したいアイテム</div>
+    <div id="targetCard"><div class="loading">読み込み中…</div></div>
+
+    <!-- 自分の提供アイテム -->
+    <div class="section-label" style="margin-top:24px">🎁 提供するアイテムを選ぶ</div>
+    <div class="offer-list" id="offerList"><div class="loading">読み込み中…</div></div>
+
+    <!-- メッセージ -->
+    <div class="section-label">💬 メッセージ（任意）</div>
+    <div class="msg-section">
+      <textarea id="msgInput" rows="3" placeholder="一言メッセージを添えると承認されやすくなります"></textarea>
+    </div>
+
+    <div class="error-msg" id="applyError"></div>
+    <button class="btn-primary" onclick="submitExchange()">申請する</button>
+    <button class="btn-sm btn-outline" style="width:100%;margin-top:10px;padding:12px" onclick="history.back()">キャンセル</button>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    const API    = '/api/items';
+    const token  = () => localStorage.getItem('gt_token');
+    const header = () => ({ 'Authorization': `Bearer ${token()}` });
+
+    const params     = new URLSearchParams(location.search);
+    const targetId   = params.get('id');
+    let   selectedOfferId = null;
+
+    if (!targetId) location.href = '/home.html';
+
+    // ── 相手のアイテム読み込み ────────────────
+    async function loadTargetItem() {
+      const card = document.getElementById('targetCard');
+      try {
+        const res  = await fetch(`${API}/${targetId}`);
+        const item = await res.json();
+        if (!res.ok) { card.innerHTML = '<div class="loading">アイテムが見つかりません</div>'; return; }
+
+        const thumb = item.images?.[0]
+          ? `<img src="${item.images[0]}" alt="${item.title}">`
+          : '🎮';
+
+        card.innerHTML = `
+          <div class="target-card">
+            <div class="target-thumb">${thumb}</div>
+            <div class="target-info">
+              <div class="target-label">相手のアイテム</div>
+              <div class="target-title">${item.title}</div>
+              <div class="target-owner">@${item.owner?.username || '?'}</div>
+              ${item.wantTitle ? `<div style="font-size:12px;color:var(--accent);margin-top:4px">🔄 求めるもの：${item.wantTitle}</div>` : ''}
+            </div>
+          </div>`;
+      } catch {
+        card.innerHTML = '<div class="loading">読み込みに失敗しました</div>';
+      }
+    }
+
+    // ── 自分の出品一覧読み込み ────────────────
+    async function loadMyItems() {
+      const list = document.getElementById('offerList');
+      try {
+        const res   = await fetch('/api/items/my/list', { headers: header() });
+        const items = await res.json();
+
+        const available = items.filter(i => i.status === '募集中');
+
+        if (!available.length) {
+          list.innerHTML = `
+            <div class="no-items">
+              <div style="font-size:32px;margin-bottom:8px">📭</div>
+              <div>提供できるアイテムがありません</div>
+              <div style="font-size:12px;margin-top:6px">先にアイテムを出品してください</div>
+              <a href="/post-item.html" class="btn-sm btn-accent" style="display:inline-block;margin-top:12px;padding:8px 16px;text-decoration:none">➕ 出品する</a>
+            </div>`;
+          return;
+        }
+
+        list.innerHTML = available.map(item => `
+          <div class="offer-card" id="offer-${item._id}" onclick="selectOffer('${item._id}')">
+            <div class="offer-thumb">
+              ${item.images?.[0] ? `<img src="${item.images[0]}" alt="${item.title}">` : '🎮'}
+            </div>
+            <div class="offer-info">
+              <div class="offer-title">${item.title}</div>
+              <div class="offer-status">${item.status}</div>
+            </div>
+            <div class="offer-check">✓</div>
+          </div>`).join('');
+      } catch {
+        list.innerHTML = '<div class="loading">読み込みに失敗しました</div>';
+      }
+    }
+
+    // ── アイテム選択 ──────────────────────────
+    function selectOffer(id) {
+      // 前の選択を解除
+      if (selectedOfferId) {
+        document.getElementById(`offer-${selectedOfferId}`)?.classList.remove('selected');
+      }
+      selectedOfferId = id;
+      document.getElementById(`offer-${id}`)?.classList.add('selected');
+    }
+
+    // ── 申請送信 ──────────────────────────────
+    async function submitExchange() {
+      const errEl = document.getElementById('applyError');
+      errEl.textContent = '';
+
+      if (!selectedOfferId) {
+        errEl.textContent = '提供するアイテムを選んでください';
+        return;
+      }
+
+      const message = document.getElementById('msgInput').value.trim();
+
+      try {
+        const res = await fetch('/api/exchange', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...header() },
+          body: JSON.stringify({
+            targetItemId: targetId,
+            offerItemId:  selectedOfferId,
+            message
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = data.message || '申請に失敗しました';
+          return;
+        }
+        alert('✅ 交換申請を送りました！');
+        location.href = '/my-exchanges.html';
+      } catch {
+        errEl.textContent = '通信エラーが発生しました';
+      }
+    }
+
+    loadTargetItem();
+    loadMyItems();
+  </script>
+</body>
+</html>
