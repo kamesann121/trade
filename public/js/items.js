@@ -183,7 +183,7 @@ async function loadItemDetail() {
 
     const meRes  = await fetch('/api/auth/me', { headers: authHeader() });
     const me     = meRes.ok ? await meRes.json() : null;
-    const isOwner = me && item.owner?._id === me._id;
+    const isOwner = me && item.owner?._id?.toString() === me._id?.toString();
 
     const imgHtml = item.images?.length
       ? `<div class="detail-imgs">
