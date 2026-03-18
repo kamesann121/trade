@@ -54,22 +54,38 @@ function openConv(userId, userName) {
   currentUserName = userName;
   clearInterval(pollTimer);
 
-  const area = document.getElementById('chatArea');
+  const area   = document.getElementById('chatArea');
+  const layout = document.querySelector('.dm-layout');
+
   area.innerHTML = `
     <div class="chat-header">
-      <div class="conv-avatar" style="width:36px;height:36px;font-size:14px">${userName[0]?.toUpperCase()}</div>
+      <button class="chat-back-btn" onclick="closeConv()">←</button>
+      <div class="conv-avatar" style="width:36px;height:36px;font-size:14px;flex-shrink:0">${(userName[0] || '?').toUpperCase()}</div>
       ${escHtml(userName)}
     </div>
     <div class="chat-messages" id="chatMsgs"></div>
     <div class="chat-input-area">
-      <textarea id="msgInput" placeholder="メッセージを入力… (Enterで送信)" rows="2"
+      <textarea id="msgInput" placeholder="メッセージを入力…" rows="1"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea>
       <button class="btn-sm btn-accent send-btn" onclick="sendMsg()">➤</button>
     </div>`;
 
+  // モバイル：チャットエリアを表示
+  if (layout) layout.classList.remove('no-conv');
+
   loadMessages();
   pollTimer = setInterval(loadMessages, 4000);
   loadConversations();
+}
+
+// ── 会話を閉じる（モバイル用） ────────────────
+function closeConv() {
+  currentUserId = null;
+  clearInterval(pollTimer);
+  const area   = document.getElementById('chatArea');
+  const layout = document.querySelector('.dm-layout');
+  area.innerHTML = '<div class="chat-placeholder"><span>👆 会話を選んでください</span></div>';
+  if (layout) layout.classList.add('no-conv');
 }
 
 // ── メッセージ読み込み ────────────────────────
@@ -147,5 +163,10 @@ if (toId) {
 
 // ページ読み込み
 if (document.getElementById('convListInner')) {
+  // モバイルは最初に会話一覧だけ表示
+  const layout = document.querySelector('.dm-layout');
+  if (layout && window.innerWidth <= 640) {
+    layout.classList.add('no-conv');
+  }
   loadConversations();
 }
