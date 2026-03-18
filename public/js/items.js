@@ -270,7 +270,12 @@ async function loadComments(itemId) {
     const myRes = await fetch('/api/auth/me', { headers: authHeader() });
     const me    = myRes.ok ? await myRes.json() : null;
     const res     = await fetch(`/api/comments/${itemId}`);
-    const comments = await res.json();
+    const data    = await res.json();
+    if (!res.ok) {
+      list.innerHTML = `<div class="comment-empty">読み込みエラー：${data.message || res.status}</div>`;
+      return;
+    }
+    const comments = Array.isArray(data) ? data : [];
     countEl.textContent = `(${comments.length})`;
     if (!comments.length) {
       list.innerHTML = '<div class="comment-empty">まだコメントはありません。最初のコメントを書いてみましょう！</div>';
@@ -295,8 +300,8 @@ async function loadComments(itemId) {
           </div>
         </div>`;
     }).join('');
-  } catch {
-    list.innerHTML = '<div class="comment-empty">コメントの読み込みに失敗しました</div>';
+  } catch (err) {
+    list.innerHTML = `<div class="comment-empty">コメントの読み込みに失敗しました：${err.message}</div>`;
   }
 }
 
