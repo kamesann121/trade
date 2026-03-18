@@ -29,16 +29,24 @@ router.post('/', auth, async (req, res) => {
     if (targetItem.owner.toString() === req.user.id)
       return res.status(400).json({ message: '自分のアイテムには申請できません' });
 
-    // ── 取引中ブロック：自分が accepted の取引に関わっていたら申請不可 ──
-    const activeAsRequester = await ExchangeRequest.findOne({
-      requester: req.user.id, status: 'accepted'
+    // ── 取引中ブロック：自分または相手が accepted の取引に関わっていたら申請不可 ──
+    const myActive = await ExchangeRequest.findOne({
+      $or: [{ requester: req.user.id }, { owner: req.user.id }],
+      status: 'accepted'
     });
-    const activeAsOwner = await ExchangeRequest.findOne({
-      owner: req.user.id, status: 'accepted'
-    });
-    if (activeAsRequester || activeAsOwner)
+    if (myActive)
       return res.status(400).json({
         message: '現在進行中の取引があります。完了してから新しい申請を行ってください。'
+      });
+
+    // 相手も取引中なら申請不可
+    const theirActive = await ExchangeRequest.findOne({
+      $or: [{ requester: targetItem.owner }, { owner: targetItem.owner }],
+      status: 'accepted'
+    });
+    if (theirActive)
+      return res.status(400).json({
+        message: '相手は現在別の取引中です。完了後に申請してください。'
       });
 
     const existing = await ExchangeRequest.findOne({
@@ -58,8 +66,6 @@ router.post('/', auth, async (req, res) => {
       `交換申請が届きました：「${targetItem.title}」`,
       `/my-exchanges.html`
     );
-    targetItem.status = '交渉中';
-    await targetItem.save();
     res.status(201).json(request);
   } catch (err) {
     res.status(500).json({ message: 'サーバーエラー', error: err.message });
@@ -107,8 +113,7 @@ router.put('/:id/accept', auth, async (req, res) => {
 
     request.status = 'accepted';
     await request.save();
-    await Item.findByIdAndUpdate(request.targetItem._id, { status: '交換済み' });
-    await Item.findByIdAndUpdate(request.offerItem._id,  { status: '交換済み' });
+    // 他の申請を拒否
     await ExchangeRequest.updateMany(
       { targetItem: request.targetItem._id, status: 'pending', _id: { $ne: request._id } },
       { status: 'rejected' }
@@ -177,6 +182,8 @@ router.put('/:id/complete', auth, async (req, res) => {
     if (request.completedBy.length >= 2) {
       request.status = 'completed';
       await request.save();
+      await Item.findByIdAndUpdate(request.targetItem._id, { status: '交換済み' });
+      await Item.findByIdAndUpdate(request.offerItem._id,  { status: '交換済み' });
       await addNotification(otherId, 'exchange',
         `🎉 交換が完了しました！「${request.targetItem.title}」`, `/my-exchanges.html`);
       return res.json({ message: '🎉 交換が完了しました！', status: 'completed' });
