@@ -74,3 +74,32 @@ if (document.readyState === 'loading') {
 } else {
   initSideMenu();
 }
+
+// ── 画像ビューワー（全ページ共通） ────────────
+function openImgViewer(src) {
+  let overlay = document.getElementById('imgViewerOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'imgViewerOverlay';
+    overlay.className = 'img-viewer-overlay';
+    overlay.innerHTML = `
+      <button class="img-viewer-close" onclick="closeImgViewer()">✕</button>
+      <img id="imgViewerImg" src="" alt="preview">`;
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) closeImgViewer();
+    });
+    document.body.appendChild(overlay);
+  }
+  document.getElementById('imgViewerImg').src = src;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeImgViewer() {
+  const overlay = document.getElementById('imgViewerOverlay');
+  if (overlay) overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+// ESCキーで閉じる
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeImgViewer();
+});
