@@ -17,19 +17,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── ルーティング ──────────────────────────────
-// BANチェック（認証が必要な全APIに適用）
-const checkBan = require('./middleware/checkBan');
-const authMiddleware = require('./middleware/auth');
-app.use('/api', (req, res, next) => {
-  // 認証不要なエンドポイントはスキップ
-  const skipPaths = ['/api/auth/firebase', '/api/auth/register', '/api/auth/login', '/api/items'];
-  if (skipPaths.some(p => req.path.startsWith(p)) && req.method === 'GET') return next();
-  authMiddleware(req, res, (err) => {
-    if (err) return next(); // 認証エラーは各ルートに任せる
-    checkBan(req, res, next);
-  });
-});
-
 app.use('/api/auth',          require('./routes/auth'));
 app.use('/api/reports',       require('./routes/reports'));
 app.use('/api/users',         require('./routes/users'));
