@@ -69,8 +69,7 @@
   <script src="/js/auth.js"></script>
   <script src="/js/items.js"></script>
   <script>
-    // 未ログインならトップへ
-    if (!getToken()) location.href = '/index.html';
+    // 未ログインならトップへ（auth.jsで処理済みのため不要だが念のため）
 
     function searchByTag(tag) {
       document.getElementById('searchInput').value = '#' + tag;
