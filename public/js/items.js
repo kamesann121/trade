@@ -354,13 +354,3 @@ if (document.getElementById('itemsGrid')) {
   searchItems();
 }
 if (document.getElementById('detailMain')) loadItemDetail();
-if (document.getElementById('menuBtn')) {
-  document.getElementById('menuBtn').addEventListener('click', () => {
-    document.getElementById('sideMenu').classList.toggle('open');
-    document.getElementById('overlay').classList.toggle('open');
-  });
-  document.getElementById('overlay').addEventListener('click', () => {
-    document.getElementById('sideMenu').classList.remove('open');
-    document.getElementById('overlay').classList.remove('open');
-  });
-}
