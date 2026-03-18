@@ -23,7 +23,9 @@ const userSchema = new mongoose.Schema({
   banReason:   { type: String, default: '' },
   reportCount: { type: Number, default: 0 },      // 通報された件数
   // デバイスフィンガープリント（サブ垢対策）
-  fingerprints: [{ type: String }]
+  fingerprints: [{ type: String }],
+  // 管理者フラグ
+  isAdmin: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // BANチェックメソッド
