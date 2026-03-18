@@ -240,10 +240,96 @@ async function loadItemDetail() {
             }
           </div>
         </div>
+      </div>
+
+      <!-- コメントセクション -->
+      <div class="comment-section">
+        <div class="comment-title">💬 コメント <span class="comment-count" id="commentCount"></span></div>
+        <div class="comment-list" id="commentList">
+          <div class="loading">読み込み中…</div>
+        </div>
+        <div class="comment-form">
+          <textarea id="commentInput" placeholder="コメントを入力（300文字以内）" maxlength="300" rows="2"></textarea>
+          <div class="comment-form-footer">
+            <span class="comment-char" id="commentChar">0 / 300</span>
+            <button class="btn-sm btn-accent" onclick="postComment('${item._id}')">送信</button>
+          </div>
+        </div>
       </div>`;
   } catch {
     main.innerHTML = '<div class="loading">読み込みに失敗しました</div>';
   }
+}
+
+// ── コメント読み込み ──────────────────────────
+async function loadComments(itemId) {
+  const list = document.getElementById('commentList');
+  const countEl = document.getElementById('commentCount');
+  if (!list) return;
+  try {
+    const myRes = await fetch('/api/auth/me', { headers: authHeader() });
+    const me    = myRes.ok ? await myRes.json() : null;
+    const res     = await fetch(`/api/comments/${itemId}`);
+    const comments = await res.json();
+    countEl.textContent = `(${comments.length})`;
+    if (!comments.length) {
+      list.innerHTML = '<div class="comment-empty">まだコメントはありません。最初のコメントを書いてみましょう！</div>';
+      return;
+    }
+    list.innerHTML = comments.map(c => {
+      const avatarHtml = c.author?.avatar
+        ? `<img src="${c.author.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+        : (c.author?.username?.[0] || '?').toUpperCase();
+      const isMyComment = me && c.author?._id === me._id;
+      const date = new Date(c.createdAt).toLocaleDateString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+      return `
+        <div class="comment-item" id="comment-${c._id}">
+          <div class="comment-avatar">${avatarHtml}</div>
+          <div class="comment-body">
+            <div class="comment-meta">
+              <span class="comment-author">${c.author?.username || '不明'}</span>
+              <span class="comment-date">${date}</span>
+              ${isMyComment ? `<button class="comment-delete-btn" onclick="deleteComment('${c._id}','${itemId}')">削除</button>` : ''}
+            </div>
+            <div class="comment-text">${c.text.replace(/
+/g,'<br>').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch {
+    list.innerHTML = '<div class="comment-empty">コメントの読み込みに失敗しました</div>';
+  }
+}
+
+// ── コメント投稿 ──────────────────────────────
+async function postComment(itemId) {
+  const input = document.getElementById('commentInput');
+  const text  = input.value.trim();
+  if (!text) return;
+  try {
+    const res = await fetch(`/api/comments/${itemId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify({ text })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.message || '投稿に失敗しました'); return; }
+    input.value = '';
+    document.getElementById('commentChar').textContent = '0 / 300';
+    loadComments(itemId);
+  } catch { alert('通信エラーが発生しました'); }
+}
+
+// ── コメント削除 ──────────────────────────────
+async function deleteComment(commentId, itemId) {
+  if (!confirm('コメントを削除しますか？')) return;
+  try {
+    const res = await fetch(`/api/comments/${commentId}`, {
+      method: 'DELETE', headers: authHeader()
+    });
+    if (res.ok) loadComments(itemId);
+    else alert('削除に失敗しました');
+  } catch { alert('通信エラーが発生しました'); }
 }
 
 async function deleteItem(id) {
