@@ -282,7 +282,7 @@ async function loadComments(itemId) {
     const comments = Array.isArray(data) ? data : [];
     countEl.textContent = `(${comments.length})`;
     if (!comments.length) {
-      list.innerHTML = '<div class="comment-empty">まだコメントはありません。最初のコメントを書いてみましょう！</div>';
+      list.innerHTML = '<div class="comment-empty">💬 まだコメントはありません。質問をしよう！</div>';
       return;
     }
     list.innerHTML = comments.map(c => {
