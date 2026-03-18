@@ -1,118 +1,151 @@
-const express = require('express');
-const router  = express.Router();
-const auth    = require('../middleware/auth');
-const Message = require('../models/Message');
-const User    = require('../models/User');
+const token  = () => localStorage.getItem('gt_token');
+const header = () => ({ Authorization: `Bearer ${token()}` });
 
-// ── 通知ヘルパー ────────────────────────────
-async function addNotification(userId, type, message, link) {
-  await User.findByIdAndUpdate(userId, {
-    $push: { notifications: { type, message, link, read: false } }
-  });
+let currentUserId   = null;
+let currentUserName = '';
+let pollTimer       = null;
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ── メッセージ送信 POST /api/messages ───────
-router.post('/', auth, async (req, res) => {
+function getMyId() {
+  try { return JSON.parse(atob(token().split('.')[1])).id; } catch { return null; }
+}
+
+// ── 会話一覧読み込み ──────────────────────────
+async function loadConversations() {
+  const inner = document.getElementById('convListInner');
+  if (!inner) return;
   try {
-    const { receiverId, text } = req.body;
-    if (!receiverId || !text?.trim())
-      return res.status(400).json({ message: '送信先とメッセージ本文は必須です' });
-    if (receiverId === req.user.id)
-      return res.status(400).json({ message: '自分にはメッセージを送れません' });
+    const res  = await fetch('/api/messages/conversations', { headers: header() });
+    const data = await res.json();
 
-    const receiver = await User.findById(receiverId);
-    if (!receiver) return res.status(404).json({ message: 'ユーザーが見つかりません' });
+    if (!Array.isArray(data) || !data.length) {
+      inner.innerHTML = '<div class="conv-empty">💬 まだメッセージはありません</div>';
+      return;
+    }
 
-    const conversationId = Message.makeConvId(req.user.id, receiverId);
-    const msg = await Message.create({
-      conversationId,
-      sender:   req.user.id,
-      receiver: receiverId,
-      text:     text.trim()
+    const myId = getMyId();
+    inner.innerHTML = data.map(msg => {
+      const partner = String(msg.sender?._id) === myId ? msg.receiver : msg.sender;
+      const avatarHtml = partner?.avatar
+        ? `<img src="${partner.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+        : (partner?.username?.[0] || '?').toUpperCase();
+      return `
+        <div class="conv-item ${currentUserId === String(partner?._id) ? 'active' : ''}"
+          onclick="openConv('${partner?._id}','${escHtml(partner?.username)}')">
+          <div class="conv-avatar">${avatarHtml}</div>
+          <div class="conv-info">
+            <div class="conv-name">${escHtml(partner?.username || '不明')}</div>
+            <div class="conv-last">${escHtml(msg.text || '')}</div>
+          </div>
+          ${msg.unreadCount > 0 ? `<div class="conv-unread">${msg.unreadCount}</div>` : ''}
+        </div>`;
+    }).join('');
+  } catch {
+    document.getElementById('convListInner').innerHTML = '<div class="conv-empty">読み込みに失敗しました</div>';
+  }
+}
+
+// ── 会話を開く ────────────────────────────────
+function openConv(userId, userName) {
+  currentUserId   = userId;
+  currentUserName = userName;
+  clearInterval(pollTimer);
+
+  const area = document.getElementById('chatArea');
+  area.innerHTML = `
+    <div class="chat-header">
+      <div class="conv-avatar" style="width:36px;height:36px;font-size:14px">${userName[0]?.toUpperCase()}</div>
+      ${escHtml(userName)}
+    </div>
+    <div class="chat-messages" id="chatMsgs"></div>
+    <div class="chat-input-area">
+      <textarea id="msgInput" placeholder="メッセージを入力… (Enterで送信)" rows="2"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea>
+      <button class="btn-sm btn-accent send-btn" onclick="sendMsg()">➤</button>
+    </div>`;
+
+  loadMessages();
+  pollTimer = setInterval(loadMessages, 4000);
+  loadConversations();
+}
+
+// ── メッセージ読み込み ────────────────────────
+async function loadMessages() {
+  const msgs = document.getElementById('chatMsgs');
+  if (!msgs || !currentUserId) return;
+  const myId = getMyId();
+  try {
+    const res  = await fetch(`/api/messages/${currentUserId}`, { headers: header() });
+    const data = await res.json();
+    if (!Array.isArray(data)) return;
+
+    const wasAtBottom = msgs.scrollHeight - msgs.scrollTop <= msgs.clientHeight + 50;
+
+    if (!data.length) {
+      msgs.innerHTML = '<div class="chat-empty">まだメッセージはありません。最初のメッセージを送ってみましょう！</div>';
+      return;
+    }
+
+    msgs.innerHTML = data.map(m => {
+      const isMine = String(m.sender?._id || m.sender) === myId;
+      const time   = new Date(m.createdAt).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+      return `
+        <div class="msg-row ${isMine ? 'mine' : 'theirs'}">
+          ${!isMine ? `<div class="msg-avatar">${(m.sender?.username?.[0] || '?').toUpperCase()}</div>` : ''}
+          <div class="msg-bubble">
+            <div class="msg-text">${escHtml(m.text).replace(/\n/g,'<br>')}</div>
+            <div class="msg-time">${time}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    if (wasAtBottom) msgs.scrollTop = msgs.scrollHeight;
+  } catch {}
+}
+
+// ── メッセージ送信 ────────────────────────────
+async function sendMsg() {
+  const input = document.getElementById('msgInput');
+  const text  = input?.value.trim();
+  if (!text || !currentUserId) return;
+  input.value = '';
+  try {
+    await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...header() },
+      body: JSON.stringify({ receiverId: currentUserId, text })
     });
+    loadMessages();
+    loadConversations();
+  } catch {}
+}
 
-    // 受信者に通知（最新1件だけ）
-    const sender = await User.findById(req.user.id).select('username');
-    await addNotification(
-      receiverId, 'dm',
-      `${sender.username} からメッセージが届きました`,
-      `/messages.html?to=${req.user.id}`
-    );
+// ── URLパラメータで自動オープン ───────────────
+const toId = new URLSearchParams(location.search).get('to');
+if (toId) {
+  // 相手のユーザー情報を取得して会話を開く
+  fetch(`/api/auth/me`, { headers: header() })
+    .then(r => r.json())
+    .then(() => {
+      // ユーザー名を取得
+      fetch(`/api/messages/${toId}`, { headers: header() })
+        .then(r => r.json())
+        .then(msgs => {
+          if (Array.isArray(msgs) && msgs.length) {
+            const partner = msgs[0].sender?._id === getMyId() ? msgs[0].receiver : msgs[0].sender;
+            if (partner) openConv(String(partner._id), partner.username || '相手');
+          } else {
+            // メッセージがなくてもIDからユーザー名を探す
+            openConv(toId, '相手');
+          }
+        });
+    });
+}
 
-    await msg.populate('sender', 'username avatar');
-    res.status(201).json(msg);
-  } catch (err) {
-    res.status(500).json({ message: 'サーバーエラー', error: err.message });
-  }
-});
-
-// ── 会話一覧 GET /api/messages/conversations ─
-router.get('/conversations', auth, async (req, res) => {
-  try {
-    // 自分が参加する全conversationの最新メッセージを取得
-    const latest = await Message.aggregate([
-      { $match: {
-          $or: [
-            { sender:   { $eq: require('mongoose').Types.ObjectId.createFromHexString(req.user.id) } },
-            { receiver: { $eq: require('mongoose').Types.ObjectId.createFromHexString(req.user.id) } }
-          ]
-      }},
-      { $sort: { createdAt: -1 } },
-      { $group: { _id: '$conversationId', lastMsg: { $first: '$$ROOT' } } },
-      { $replaceRoot: { newRoot: '$lastMsg' } },
-      { $sort: { createdAt: -1 } }
-    ]);
-
-    // 相手ユーザー情報を付加
-    const populated = await Message.populate(latest, [
-      { path: 'sender',   select: 'username avatar' },
-      { path: 'receiver', select: 'username avatar' }
-    ]);
-
-    // 未読数も付加
-    const result = await Promise.all(populated.map(async msg => {
-      const unread = await Message.countDocuments({
-        conversationId: msg.conversationId,
-        receiver: req.user.id,
-        read: false
-      });
-      return { ...msg, unreadCount: unread };
-    }));
-
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ message: 'サーバーエラー', error: err.message });
-  }
-});
-
-// ── 会話履歴 GET /api/messages/:userId ──────
-router.get('/:userId', auth, async (req, res) => {
-  try {
-    const conversationId = Message.makeConvId(req.user.id, req.params.userId);
-    const messages = await Message.find({ conversationId })
-      .populate('sender', 'username avatar')
-      .sort({ createdAt: 1 });
-
-    // 既読にする
-    await Message.updateMany(
-      { conversationId, receiver: req.user.id, read: false },
-      { read: true }
-    );
-
-    res.json(messages);
-  } catch {
-    res.status(500).json({ message: 'サーバーエラー' });
-  }
-});
-
-// ── 未読数合計 GET /api/messages/unread/count ─
-router.get('/unread/count', auth, async (req, res) => {
-  try {
-    const count = await Message.countDocuments({ receiver: req.user.id, read: false });
-    res.json({ count });
-  } catch {
-    res.status(500).json({ message: 'サーバーエラー' });
-  }
-});
-
-module.exports = router;
+// ページ読み込み
+if (document.getElementById('convListInner')) {
+  loadConversations();
+}
