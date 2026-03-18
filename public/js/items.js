@@ -5,6 +5,14 @@ if (!getToken() && !location.pathname.includes('index')) {
 const API = '/api/items';
 const authHeader = () => ({ 'Authorization': `Bearer ${getToken()}` });
 
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // ══════════════════════════════════════════════
 // HOME PAGE
 // ══════════════════════════════════════════════
