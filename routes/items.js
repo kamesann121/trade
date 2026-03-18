@@ -1,30 +1,9 @@
 const express  = require('express');
 const router   = express.Router();
-const multer   = require('multer');
-const path     = require('path');
-const fs       = require('fs');
 const { body, validationResult } = require('express-validator');
 const auth     = require('../middleware/auth');
 const Item     = require('../models/Item');
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = 'uploads/items';
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname)}`);
-  }
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (/image\/(jpeg|png|gif|webp)/.test(file.mimetype)) cb(null, true);
-    else cb(new Error('画像ファイルのみアップロード可能です'));
-  }
-});
+const { cloudinary, uploadItem: upload } = require('../config/cloudinary');
 
 // ── 出品 ────────────────────────────────────
 router.post('/', auth, upload.array('images', 5), [
@@ -34,7 +13,7 @@ router.post('/', auth, upload.array('images', 5), [
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   try {
     const { title, description, wantTitle } = req.body;
-    const images = (req.files || []).map(f => '/' + f.path.replace(/\\/g, '/'));
+    const images = (req.files || []).map(f => f.path); // Cloudinary URL
 
     // descriptionから#タグを自動抽出
     const tagMatches = (description || '').match(/#[\w\u3040-\u9fff]+/g) || [];
@@ -123,7 +102,7 @@ router.put('/:id', auth, upload.array('images', 5), async (req, res) => {
       const tagMatches = req.body.description.match(/#[\w\u3040-\u9fff]+/g) || [];
       item.tags = tagMatches.map(t => t.slice(1).toLowerCase());
     }
-    if (req.files?.length) item.images = req.files.map(f => '/' + f.path.replace(/\\/g, '/'));
+    if (req.files?.length) item.images = req.files.map(f => f.path); // Cloudinary URL
 
     await item.save();
     res.json(item);
