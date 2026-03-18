@@ -9,10 +9,13 @@ function isTokenValid() {
   const token = getToken();
   if (!token) return false;
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.exp * 1000 > Date.now();
+    // JWTの形式チェックのみ（3つのパートがあるか）
+    const parts = token.split('.');
+    if (parts.length !== 3) { clearToken(); return false; }
+    JSON.parse(atob(parts[1])); // パースできるか確認
+    return true;
   } catch (e) {
-    clearToken(); // 壊れたトークンは削除
+    clearToken();
     return false;
   }
 }
@@ -20,7 +23,7 @@ function isTokenValid() {
 // ── ページ振り分け ───────────────────────────
 const publicPages = ['/index.html', '/'];
 const isPublicPage = publicPages.some(p =>
-  location.pathname === p || location.pathname.endsWith(p)
+  location.pathname === p
 );
 
 if (isPublicPage) {
