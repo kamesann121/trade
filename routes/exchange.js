@@ -4,6 +4,7 @@ const auth     = require('../middleware/auth');
 const ExchangeRequest = require('../models/ExchangeRequest');
 const Item     = require('../models/Item');
 const User     = require('../models/User');
+const Message  = require('../models/Message');
 
 async function addNotification(userId, type, message, link) {
   await User.findByIdAndUpdate(userId, {
@@ -184,6 +185,11 @@ router.put('/:id/complete', auth, async (req, res) => {
       await request.save();
       await Item.findByIdAndUpdate(request.targetItem._id, { status: '交換済み' });
       await Item.findByIdAndUpdate(request.offerItem._id,  { status: '交換済み' });
+
+      // 取引相手とのメッセージを自動削除
+      const convId = Message.makeConvId(request.requester.toString(), request.owner.toString());
+      await Message.deleteMany({ conversationId: convId });
+
       await addNotification(otherId, 'exchange',
         `🎉 交換が完了しました！「${request.targetItem.title}」`, `/my-exchanges.html`);
       return res.json({ message: '🎉 交換が完了しました！', status: 'completed' });
