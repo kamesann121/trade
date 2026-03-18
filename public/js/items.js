@@ -9,6 +9,74 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+// ── 画像モーダル ──────────────────────────────
+let modalImages = [];
+let modalIndex  = 0;
+
+function initImgModal() {
+  if (document.getElementById('imgModal')) return;
+  const modal = document.createElement('div');
+  modal.id = 'imgModal';
+  modal.className = 'img-modal';
+  modal.innerHTML = `
+    <button class="img-modal-close" onclick="closeImgModal()">✕</button>
+    <button class="img-modal-prev" id="imgModalPrev" onclick="shiftModal(-1)">‹</button>
+    <img id="imgModalImg" src="" alt="">
+    <button class="img-modal-next" id="imgModalNext" onclick="shiftModal(1)">›</button>`;
+  modal.addEventListener('click', e => { if (e.target === modal) closeImgModal(); });
+  document.body.appendChild(modal);
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('imgModal')?.classList.contains('open')) return;
+    if (e.key === 'Escape') closeImgModal();
+    if (e.key === 'ArrowLeft')  shiftModal(-1);
+    if (e.key === 'ArrowRight') shiftModal(1);
+  });
+}
+
+function openImgModal(images, index = 0) {
+  initImgModal();
+  modalImages = Array.isArray(images) ? images : [images];
+  modalIndex  = index;
+  updateModalImg();
+  document.getElementById('imgModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeImgModal() {
+  document.getElementById('imgModal')?.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function shiftModal(dir) {
+  modalIndex = (modalIndex + dir + modalImages.length) % modalImages.length;
+  updateModalImg();
+}
+
+function updateModalImg() {
+  document.getElementById('imgModalImg').src = modalImages[modalIndex];
+  const prev = document.getElementById('imgModalPrev');
+  const next = document.getElementById('imgModalNext');
+  if (prev) prev.style.display = modalImages.length > 1 ? '' : 'none';
+  if (next) next.style.display = modalImages.length > 1 ? '' : 'none';
+}
+
+// ── プロフィールリンク ────────────────────────
+function goToProfile(userId) {
+  if (userId) location.href = '/profile.html?id=' + userId;
+}
+
+// ── サムネイルクリック ────────────────────────
+let currentThumbIndex = 0;
+function setMainImg(src, index) {
+  currentThumbIndex = index;
+  const mainImg = document.getElementById('mainImg');
+  if (mainImg) mainImg.src = src;
+  // アクティブクラス更新
+  document.querySelectorAll('.detail-thumbs img').forEach((el, i) => {
+    el.classList.toggle('active', i === index);
+  });
+}
+
 // ══════════════════════════════════════════════
 // HOME PAGE
 // ══════════════════════════════════════════════
@@ -189,13 +257,16 @@ async function loadItemDetail() {
     const me     = meRes.ok ? await meRes.json() : null;
     const isOwner = me && String(item.owner?._id || '') === String(me._id || '');
 
-    const imgHtml = item.images?.length
+    const imgList = item.images || [];
+    const imgsJson = JSON.stringify(imgList).replace(/"/g, '&quot;');
+    const imgHtml = imgList.length
       ? `<div class="detail-imgs">
-          <img src="${item.images[0]}" class="detail-main-img" id="mainImg" alt="${item.title}">
-          ${item.images.length > 1
-            ? `<div class="detail-thumbs">${item.images.map((img, i) =>
-                `<img src="${img}" onclick="document.getElementById('mainImg').src='${img}'"
-                  class="${i===0?'active':''}">`
+          <img src="${imgList[0]}" class="detail-main-img zoomable" id="mainImg" alt="${item.title}"
+            onclick="openImgModal(${imgsJson}, currentThumbIndex || 0)">
+          ${imgList.length > 1
+            ? `<div class="detail-thumbs">${imgList.map((img, i) =>
+                `<img src="${img}" class="zoomable ${i===0?'active':''}"
+                  onclick="setMainImg('${img}',${i})">`
               ).join('')}</div>`
             : ''}
         </div>`
@@ -223,7 +294,7 @@ async function loadItemDetail() {
               ).join('')}</div>`
             : ''}
 
-          <div class="detail-owner-card">
+          <div class="detail-owner-card user-link" onclick="goToProfile('${item.owner?._id}')">
             <div class="owner-avatar">${item.owner?.username?.[0]?.toUpperCase()||'?'}</div>
             <div>
               <div class="owner-name">@${item.owner?.username||'?'}</div>
@@ -300,10 +371,10 @@ async function loadComments(itemId) {
       const date = new Date(c.createdAt).toLocaleDateString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
       return `
         <div class="comment-item" id="comment-${c._id}">
-          <div class="comment-avatar">${avatarHtml}</div>
+          <div class="comment-avatar user-link" onclick="goToProfile('${c.author?._id}')">${avatarHtml}</div>
           <div class="comment-body">
             <div class="comment-meta">
-              <span class="comment-author">${c.author?.username || '不明'}</span>
+              <span class="comment-author user-link" onclick="goToProfile('${c.author?._id}')">${c.author?.username || '不明'}</span>
               <span class="comment-date">${date}</span>
               ${isMyComment ? `<button class="comment-delete-btn" onclick="deleteComment('${c._id}','${itemId}')">削除</button>` : ''}
             </div>
