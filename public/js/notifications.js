@@ -1,55 +1,73 @@
-const express = require('express');
-const router  = express.Router();
-const auth    = require('../middleware/auth');
-const User    = require('../models/User');
-
-// ── 通知一覧 GET /api/notifications ─────────
-router.get('/', auth, async (req, res) => {
+// ── 通知バッジ更新（全ページ共通） ────────────
+async function updateNotifBadge() {
+  const badge = document.getElementById('notifBadge');
+  if (!badge) return;
   try {
-    const user = await User.findById(req.user.id).select('notifications');
-    const notifs = (user.notifications || []).slice().reverse(); // 新しい順
-    res.json(notifs);
-  } catch {
-    res.status(500).json({ message: 'サーバーエラー' });
-  }
-});
+    const res  = await fetch('/api/notifications/unread', {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    });
+    if (!res.ok) return;
+    const { count } = await res.json();
+    badge.textContent = count;
+    badge.style.display = count > 0 ? '' : 'none';
+  } catch {}
+}
 
-// ── 未読数 GET /api/notifications/unread ─────
-router.get('/unread', auth, async (req, res) => {
+// ── 通知ページの読み込み ──────────────────────
+async function loadNotifications() {
+  const list = document.getElementById('notifList');
+  if (!list) return;
   try {
-    const user  = await User.findById(req.user.id).select('notifications');
-    const count = (user.notifications || []).filter(n => !n.read).length;
-    res.json({ count });
-  } catch {
-    res.status(500).json({ message: 'サーバーエラー' });
-  }
-});
+    const res   = await fetch('/api/notifications', {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    });
+    const notifs = await res.json();
 
-// ── 全て既読 PUT /api/notifications/read-all ─
-router.put('/read-all', auth, async (req, res) => {
+    if (!Array.isArray(notifs) || !notifs.length) {
+      list.innerHTML = '<div class="empty-state"><div style="font-size:48px;margin-bottom:12px">🔔</div>通知はありません</div>';
+      return;
+    }
+
+    const typeIcon = { exchange: '🔄', dm: '💬', review: '⭐' };
+
+    list.innerHTML = notifs.map((n, i) => `
+      <div class="notif-item ${n.read ? '' : 'unread'}" onclick="readNotif(${i}, '${n.link || ''}')">
+        <div class="notif-type-icon">${typeIcon[n.type] || '🔔'}</div>
+        <div class="notif-body">
+          <div class="notif-msg">${n.message}</div>
+          <div class="notif-time">${new Date(n.createdAt).toLocaleString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}</div>
+        </div>
+        ${!n.read ? '<div class="notif-dot"></div>' : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state">読み込みに失敗しました</div>`;
+  }
+}
+
+async function readNotif(index, link) {
   try {
-    await User.updateOne(
-      { _id: req.user.id },
-      { $set: { 'notifications.$[].read': true } }
-    );
-    res.json({ message: '全て既読にしました' });
-  } catch {
-    res.status(500).json({ message: 'サーバーエラー' });
-  }
-});
+    await fetch(`/api/notifications/${index}/read`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${getToken()}` }
+    });
+  } catch {}
+  if (link) location.href = link;
+}
 
-// ── 1件既読 PUT /api/notifications/:index/read ─
-router.put('/:index/read', auth, async (req, res) => {
+async function markAllRead() {
   try {
-    const user  = await User.findById(req.user.id);
-    const notifs = user.notifications || [];
-    const idx   = notifs.length - 1 - Number(req.params.index); // reverse順→元の順
-    if (notifs[idx]) notifs[idx].read = true;
-    await user.save();
-    res.json({ message: '既読にしました' });
-  } catch {
-    res.status(500).json({ message: 'サーバーエラー' });
-  }
-});
+    await fetch('/api/notifications/read-all', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${getToken()}` }
+    });
+    loadNotifications();
+  } catch {}
+}
 
-module.exports = router;
+// ページ判定
+if (document.getElementById('notifList')) {
+  loadNotifications();
+}
+updateNotifBadge();
+setInterval(updateNotifBadge, 30000);
