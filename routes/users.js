@@ -28,7 +28,12 @@ router.put('/profile', auth, async (req, res) => {
 });
 
 // ── アバターアップロード ──────────────────────
-router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
+router.post('/avatar', auth, (req, res, next) => {
+  upload.single('avatar')(req, res, (err) => {
+    if (err) return res.status(400).json({ message: err.message || '画像のアップロードに失敗しました' });
+    next();
+  });
+}, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: '画像が選択されていません' });
     const avatarUrl = req.file.path; // Cloudinary URL
@@ -44,7 +49,7 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
     await user.save();
     res.json({ avatar: avatarUrl });
   } catch (err) {
-    res.status(500).json({ message: 'サーバーエラー' });
+    res.status(500).json({ message: 'サーバーエラー：' + err.message });
   }
 });
 
