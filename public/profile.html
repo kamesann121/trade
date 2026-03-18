@@ -121,6 +121,7 @@
       <li><a href="/messages.html">💬 メッセージ</a></li>
       <li><a href="/notifications.html">🔔 通知</a></li>
       <li><a href="/profile.html">👤 プロフィール</a></li>
+      <li><a href="/report.html">🚨 通報</a></li>
       <li><a href="#" onclick="logout()">🚪 ログアウト</a></li>
     </ul>
   </aside>
@@ -139,6 +140,8 @@
           <div class="profile-name-row">
             <span class="profile-username" id="displayUsername">読み込み中…</span>
             <button class="edit-profile-btn" onclick="toggleEdit()">✏️ 編集</button>
+            <button class="edit-profile-btn" id="reportBtn" style="display:none;background:rgba(224,60,60,0.1);border-color:var(--danger);color:var(--danger);"
+              onclick="goReport()">🚨 通報</button>
           </div>
           <div class="profile-bio-text" id="displayBio">自己紹介なし</div>
         </div>
@@ -183,10 +186,15 @@
     const viewUserId = new URLSearchParams(location.search).get('id');
     const isOwnProfile = !viewUserId;
 
-    // 他人のプロフィール表示時は編集UI非表示
+    // 他人のプロフィール表示時は編集UI非表示・通報ボタン表示
     if (!isOwnProfile) {
       document.querySelector('.avatar-edit-btn')?.style.setProperty('display','none');
       document.querySelector('.edit-profile-btn')?.style.setProperty('display','none');
+      document.getElementById('reportBtn')?.style.setProperty('display','');
+    }
+
+    function goReport() {
+      location.href = `/report.html?id=${viewUserId}&name=${encodeURIComponent(document.getElementById('displayUsername').textContent)}`;
     }
 
     // ── プロフィール読み込み ──────────────────
