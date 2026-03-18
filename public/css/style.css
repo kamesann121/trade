@@ -690,3 +690,79 @@ body {
 .item-tags .tag {
   font-size: 10px; padding: 2px 6px;
 }
+
+/* ═══════════════════════════════════════════
+   コメントセクション
+   ═══════════════════════════════════════════ */
+.comment-section {
+  margin-top: 32px;
+  border-top: 2px solid var(--border);
+  padding-top: 24px;
+}
+.comment-title {
+  font-size: 16px; font-weight: 900; margin-bottom: 16px;
+}
+.comment-count { font-size: 14px; color: var(--text-sub); font-weight: 400; }
+
+/* コメント一覧（溢れたらスクロール） */
+.comment-list {
+  max-height: 420px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  margin-bottom: 16px;
+  padding-right: 4px;
+}
+.comment-list::-webkit-scrollbar { width: 4px; }
+.comment-list::-webkit-scrollbar-track { background: var(--bg); border-radius: 2px; }
+.comment-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.comment-empty {
+  text-align: center; color: var(--text-sub);
+  font-size: 13px; padding: 24px 0;
+}
+
+/* 個々のコメント */
+.comment-item {
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.comment-avatar {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; overflow: hidden;
+}
+.comment-body { flex: 1; min-width: 0; }
+.comment-meta {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;
+}
+.comment-author { font-size: 13px; font-weight: 700; }
+.comment-date   { font-size: 11px; color: var(--text-sub); }
+.comment-delete-btn {
+  font-size: 11px; color: var(--danger); background: none;
+  border: none; cursor: pointer; padding: 0; margin-left: auto;
+}
+.comment-delete-btn:hover { text-decoration: underline; }
+.comment-text {
+  font-size: 13px; line-height: 1.7; color: var(--text);
+  background: var(--bg); border-radius: 8px; padding: 8px 12px;
+  word-break: break-word;
+}
+
+/* コメント入力欄 */
+.comment-form {
+  border: 1.5px solid var(--border); border-radius: 10px;
+  overflow: hidden; background: var(--bg);
+  transition: border-color 0.2s;
+}
+.comment-form:focus-within { border-color: var(--accent); }
+.comment-form textarea {
+  width: 100%; padding: 10px 14px;
+  background: transparent; border: none;
+  color: var(--text); font-size: 14px;
+  resize: none; outline: none; font-family: inherit; line-height: 1.6;
+}
+.comment-form-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; border-top: 1px solid var(--border);
+}
+.comment-char { font-size: 11px; color: var(--text-sub); }
