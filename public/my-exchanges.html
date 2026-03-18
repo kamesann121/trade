@@ -195,6 +195,7 @@
       <li><a href="/messages.html">💬 メッセージ</a></li>
       <li><a href="/notifications.html">🔔 通知</a></li>
       <li><a href="/profile.html">👤 プロフィール</a></li>
+      <li><a href="/report.html">🚨 通報</a></li>
       <li><a href="#" onclick="logout()">🚪 ログアウト</a></li>
     </ul>
   </aside>
@@ -442,8 +443,31 @@
         });
         const data = await res.json();
         if (!res.ok) { alert(data.message || 'エラーが発生しました'); return; }
+
+        // 両者完了 → レビュー強制表示のためlocalStorageに保存
+        if (data.status === 'completed') {
+          // 取引相手の情報を取得
+          const exchange = [...allReceived, ...allSent].find(r => r._id === id);
+          if (exchange) {
+            const amSender  = allSent.some(s => s._id === id);
+            const partner   = amSender ? exchange.owner : exchange.requester;
+            const partnerId   = partner?._id;
+            const partnerName = partner?.username || '相手';
+            localStorage.setItem('pending_review', JSON.stringify({
+              exchangeId: id,
+              partnerId,
+              partnerName
+            }));
+          }
+        }
+
         alert(data.message);
         loadAll();
+
+        // 完了なら即レビューモーダル表示
+        if (data.status === 'completed') {
+          checkPendingReview();
+        }
       } catch {
         alert('通信エラーが発生しました');
       }
