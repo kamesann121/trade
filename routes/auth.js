@@ -20,15 +20,18 @@ router.post('/firebase', async (req, res) => {
 
     let user = await User.findOne({ email });
     if (!user) {
+      // 新規ユーザーのみ名前・アバターをGoogleから設定
       user = await User.create({
         username: name || email.split('@')[0],
         email,
         googleId: uid,
         avatar:   picture || ''
       });
-    } else if (!user.googleId) {
-      user.googleId = uid;
-      await user.save();
+    } else {
+      // 既存ユーザーはgoogleIdだけ更新（名前・アバターは上書きしない）
+      let updated = false;
+      if (!user.googleId) { user.googleId = uid; updated = true; }
+      if (updated) await user.save();
     }
 
     res.json({
