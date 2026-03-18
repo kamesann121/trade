@@ -1,30 +1,8 @@
 const express  = require('express');
 const router   = express.Router();
-const multer   = require('multer');
-const path     = require('path');
-const fs       = require('fs');
 const auth     = require('../middleware/auth');
 const User     = require('../models/User');
-
-// アバター用ストレージ
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = 'uploads/avatars';
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${req.user.id}-${Date.now()}${path.extname(file.originalname)}`);
-  }
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (/image\/(jpeg|png|gif|webp)/.test(file.mimetype)) cb(null, true);
-    else cb(new Error('画像ファイルのみアップロード可能です'));
-  }
-});
+const { cloudinary, uploadAvatar: upload } = require('../config/cloudinary');
 
 // ── プロフィール更新 ──────────────────────────
 router.put('/profile', auth, async (req, res) => {
@@ -53,13 +31,13 @@ router.put('/profile', auth, async (req, res) => {
 router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: '画像が選択されていません' });
-    const avatarUrl = '/' + req.file.path.replace(/\\/g, '/');
+    const avatarUrl = req.file.path; // Cloudinary URL
 
-    // 古いアバターを削除（デフォルト以外）
+    // 古いアバターをCloudinaryから削除
     const user = await User.findById(req.user.id);
-    if (user.avatar && user.avatar.startsWith('/uploads/avatars/')) {
-      const oldPath = path.join(__dirname, '..', user.avatar);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    if (user.avatar && user.avatar.includes('cloudinary.com')) {
+      const publicId = user.avatar.split('/').slice(-2).join('/').split('.')[0];
+      await cloudinary.uploader.destroy(publicId).catch(() => {});
     }
 
     user.avatar = avatarUrl;
