@@ -39,6 +39,12 @@ app.use('/api/exchange',      require('./routes/exchange'));
 app.use('/api/messages',      require('./routes/messages'));
 app.use('/api/reviews',       require('./routes/reviews'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/admin',         require('./routes/admin'));
+
+// ── 管理者パネル ─────────────────────────────
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
 // ── SPAフォールバック ─────────────────────────
 app.get('*', (req, res) => {
