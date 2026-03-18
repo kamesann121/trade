@@ -291,8 +291,7 @@ async function loadComments(itemId) {
               <span class="comment-date">${date}</span>
               ${isMyComment ? `<button class="comment-delete-btn" onclick="deleteComment('${c._id}','${itemId}')">削除</button>` : ''}
             </div>
-            <div class="comment-text">${c.text.replace(/
-/g,'<br>').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            <div class="comment-text">${escHtml(c.text).replace(/\n/g,'<br>')}</div>
           </div>
         </div>`;
     }).join('');
