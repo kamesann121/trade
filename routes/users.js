@@ -53,4 +53,16 @@ router.post('/avatar', auth, (req, res, next) => {
   }
 });
 
+// ── 他ユーザーのプロフィール取得 ──────────────
+router.get('/:userId', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .select('username avatar bio rating ratingCount');
+    if (!user) return res.status(404).json({ message: 'ユーザーが見つかりません' });
+    res.json(user);
+  } catch {
+    res.status(500).json({ message: 'サーバーエラー' });
+  }
+});
+
 module.exports = router;
