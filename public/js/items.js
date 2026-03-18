@@ -260,6 +260,13 @@ async function loadItemDetail() {
           </div>
         </div>
       </div>`;
+    loadComments(id);
+    const ci = document.getElementById("commentInput");
+    const cc = document.getElementById("commentChar");
+    if (ci && cc) {
+      ci.addEventListener("input", () => { cc.textContent = ci.value.length + " / 300"; cc.style.color = ci.value.length > 280 ? "var(--danger)" : "var(--text-sub)"; });
+      ci.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); postComment(id); } });
+    }
   } catch {
     main.innerHTML = '<div class="loading">読み込みに失敗しました</div>';
   }
