@@ -1,7 +1,3 @@
-if (!getToken() && !location.pathname.includes('index')) {
-  location.href = '/index.html';
-}
-
 const API = '/api/items';
 const authHeader = () => ({ 'Authorization': `Bearer ${getToken()}` });
 
