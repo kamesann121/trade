@@ -16,8 +16,22 @@ const userSchema = new mongoose.Schema({
     link:    { type: String },
     read:    { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }
-  }]
+  }],
+  // BAN関連
+  isBanned:    { type: Boolean, default: false },
+  banUntil:    { type: Date, default: null },     // nullなら永久BAN
+  banReason:   { type: String, default: '' },
+  reportCount: { type: Number, default: 0 },      // 通報された件数
+  // デバイスフィンガープリント（サブ垢対策）
+  fingerprints: [{ type: String }]
 }, { timestamps: true });
+
+// BANチェックメソッド
+userSchema.methods.isBannedNow = function() {
+  if (!this.isBanned) return false;
+  if (!this.banUntil) return true; // 永久BAN
+  return new Date() < this.banUntil; // 期間BAN
+};
 
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password') || !this.password) return next();
