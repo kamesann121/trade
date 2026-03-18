@@ -191,7 +191,7 @@ async function loadItemDetail() {
 
     const meRes  = await fetch('/api/auth/me', { headers: authHeader() });
     const me     = meRes.ok ? await meRes.json() : null;
-    const isOwner = me && item.owner?._id?.toString() === me._id?.toString();
+    const isOwner = me && String(item.owner?._id || '') === String(me._id || '');
 
     const imgHtml = item.images?.length
       ? `<div class="detail-imgs">
@@ -293,7 +293,7 @@ async function loadComments(itemId) {
       const avatarHtml = c.author?.avatar
         ? `<img src="${c.author.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
         : (c.author?.username?.[0] || '?').toUpperCase();
-      const isMyComment = me && c.author?._id === me._id;
+      const isMyComment = me && String(c.author?._id || '') === String(me._id || '');
       const date = new Date(c.createdAt).toLocaleDateString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
       return `
         <div class="comment-item" id="comment-${c._id}">
