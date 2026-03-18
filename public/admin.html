@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameTrade 管理者パネル</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1117; --bg2: #1a1d27; --card: #21253a;
+      --border: #2e3250; --accent: #7c5cfc; --accent2: #fc5c7d;
+      --text: #e8eaf6; --text-sub: #8891b8;
+      --success: #4caf7d; --warning: #f0a800; --danger: #fc5c5c;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ログイン画面 */
+    .login-wrap {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .login-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 40px; width: 100%; max-width: 400px;
+    }
+    .login-title { font-size: 22px; font-weight: 900; margin-bottom: 6px; }
+    .login-sub { font-size: 13px; color: var(--text-sub); margin-bottom: 28px; }
+
+    /* レイアウト */
+    .admin-layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 220px; flex-shrink: 0; background: var(--bg2);
+      border-right: 1px solid var(--border); padding: 20px 0;
+      position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto;
+    }
+    .sidebar-title {
+      font-size: 13px; font-weight: 900; color: var(--accent);
+      padding: 0 20px 16px; border-bottom: 1px solid var(--border); margin-bottom: 8px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 20px; cursor: pointer; font-size: 14px;
+      color: var(--text-sub); transition: all 0.15s; border: none;
+      background: none; width: 100%; text-align: left;
+    }
+    .nav-item:hover { background: var(--card); color: var(--text); }
+    .nav-item.active { background: rgba(124,92,252,0.15); color: var(--accent); font-weight: 700; }
+    .nav-badge {
+      margin-left: auto; background: var(--accent2); color: #fff;
+      font-size: 11px; padding: 2px 7px; border-radius: 10px;
+    }
+
+    .main-content { margin-left: 220px; padding: 24px; flex: 1; }
+
+    /* 統計カード */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 28px; }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px; text-align: center;
+    }
+    .stat-num { font-size: 32px; font-weight: 900; color: var(--accent); }
+    .stat-label { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+
+    /* テーブル */
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      font-weight: 700; font-size: 15px;
+    }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { padding: 10px 14px; text-align: left; color: var(--text-sub); font-weight: 700; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* バッジ */
+    .badge {
+      display: inline-block; padding: 3px 9px; border-radius: 20px;
+      font-size: 11px; font-weight: 700;
+    }
+    .badge-ban    { background: rgba(252,92,92,0.2);  color: var(--danger); }
+    .badge-ok     { background: rgba(76,175,125,0.2); color: var(--success); }
+    .badge-warn   { background: rgba(240,168,0,0.2);  color: var(--warning); }
+    .badge-admin  { background: rgba(124,92,252,0.2); color: var(--accent); }
+
+    /* ボタン */
+    .btn { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; transition: opacity 0.2s; }
+    .btn:hover { opacity: 0.8; }
+    .btn-red    { background: var(--danger);  color: #fff; }
+    .btn-green  { background: var(--success); color: #fff; }
+    .btn-purple { background: var(--accent);  color: #fff; }
+    .btn-yellow { background: var(--warning); color: #fff; }
+    .btn-gray   { background: var(--text-sub);color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+    /* 検索バー */
+    .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+    .search-bar input {
+      flex: 1; padding: 9px 14px; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); font-size: 14px; outline: none;
+    }
+    .search-bar input:focus { border-color: var(--accent); }
+
+    /* フォーム */
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; color: var(--text-sub); margin-bottom: 5px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 9px 12px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); font-size: 13px; outline: none; font-family: inherit;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+
+    /* モーダル */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 500;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px;
+      width: 100%; max-width: 460px; margin: 16px;
+    }
+    .modal h3 { font-size: 17px; font-weight: 900; margin-bottom: 18px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+    .modal-actions .btn { flex: 1; padding: 10px; font-size: 13px; }
+
+    .user-cell { display: flex; align-items: center; gap: 8px; }
+    .user-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--accent); display: flex; align-items: center;
+      justify-content: center; font-size: 12px; font-weight: 700;
+      color: #fff; flex-shrink: 0; overflow: hidden;
+    }
+    .user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+    .section { display: none; }
+    .section.active { display: block; }
+    .section-title { font-size: 20px; font-weight: 900; margin-bottom: 20px; }
+
+    .empty { text-align: center; padding: 40px; color: var(--text-sub); }
+    .error-msg { color: var(--danger); font-size: 13px; margin-top: 8px; }
+
+    @media (max-width: 640px) {
+      .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; padding: 8px; gap: 4px; }
+      .sidebar-title { display: none; }
+      .nav-item { width: auto; padding: 8px 12px; border-radius: 6px; font-size: 12px; }
+      .main-content { margin-left: 0; padding: 16px; }
+      .admin-layout { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ログイン画面 -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="login-title">🛡️ 管理者パネル</div>
+    <div class="login-sub">GameTrade Administration</div>
+    <div class="form-group">
+      <label>メールアドレス</label>
+      <input type="email" id="adminEmail" placeholder="admin@example.com">
+    </div>
+    <div class="form-group">
+      <label>パスワード</label>
+      <input type="password" id="adminPassword" placeholder="••••••"
+        onkeydown="if(event.key==='Enter')adminLogin()">
+    </div>
+    <div class="error-msg" id="loginError"></div>
+    <button class="btn btn-purple" style="width:100%;padding:12px;margin-top:8px;font-size:14px" onclick="adminLogin()">ログイン</button>
+  </div>
+</div>
+
+<!-- 管理者パネル本体 -->
+<div class="admin-layout" id="adminPanel" style="display:none">
+  <aside class="sidebar">
+    <div class="sidebar-title">🛡️ ADMIN</div>
+    <button class="nav-item active" onclick="showSection('dashboard')">📊 ダッシュボード</button>
+    <button class="nav-item" onclick="showSection('users')">👥 ユーザー管理</button>
+    <button class="nav-item" onclick="showSection('reports')">🚨 通報一覧 <span class="nav-badge" id="reportBadge" style="display:none">0</span></button>
+    <button class="nav-item" onclick="showSection('exchanges')">🔄 取引管理</button>
+    <button class="nav-item" onclick="showSection('items')">📦 アイテム管理</button>
+    <button class="nav-item" style="margin-top:auto;color:var(--danger)" onclick="adminLogout()">🚪 ログアウト</button>
+  </aside>
+
+  <main class="main-content">
+
+    <!-- ダッシュボード -->
+    <div class="section active" id="section-dashboard">
+      <div class="section-title">📊 ダッシュボード</div>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-num">-</div><div class="stat-label">総ユーザー</div></div>
+      </div>
+    </div>
+
+    <!-- ユーザー管理 -->
+    <div class="section" id="section-users">
+      <div class="section-title">👥 ユーザー管理</div>
+      <div class="search-bar">
+        <input type="text" id="userSearch" placeholder="ユーザー名で検索…"
+          onkeydown="if(event.key==='Enter')loadUsers()">
+        <button class="btn btn-purple" onclick="loadUsers()">検索</button>
+      </div>
+      <div class="panel">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ユーザー</th><th>メール</th><th>通報数</th><th>ステータス</th><th>操作</th></tr>
+            </thead>
+            <tbody id="usersTableBody"><tr><td colspan="5" class="empty">読み込み中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 通報一覧 -->
+    <div class="section" id="section-reports">
+      <div class="section-title">🚨 通報一覧</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-outline" onclick="loadReports('pending')">未対応</button>
+        <button class="btn btn-outline" onclick="loadReports('reviewed')">対応済み</button>
+        <button class="btn btn-outline" onclick="loadReports('all')">全て</button>
+      </div>
+      <div class="panel">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>通報者</th><th>対象</th><th>理由</th><th>詳細</th><th>日時</th><th>操作</th></tr>
+            </thead>
+            <tbody id="reportsTableBody"><tr><td colspan="6" class="empty">読み込み中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 取引管理 -->
+    <div class="section" id="section-exchanges">
+      <div class="section-title">🔄 取引管理</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-outline" onclick="loadExchanges('accepted')">進行中</button>
+        <button class="btn btn-outline" onclick="loadExchanges('pending')">申請中</button>
+        <button class="btn btn-outline" onclick="loadExchanges('all')">全て</button>
+      </div>
+      <div class="panel">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>申請者</th><th>受取人</th><th>アイテム</th><th>ステータス</th><th>操作</th></tr>
+            </thead>
+            <tbody id="exchangesTableBody"><tr><td colspan="5" class="empty">読み込み中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- アイテム管理 -->
+    <div class="section" id="section-items">
+      <div class="section-title">📦 アイテム管理</div>
+      <div class="search-bar">
+        <input type="text" id="itemSearch" placeholder="アイテム名で検索…"
+          onkeydown="if(event.key==='Enter')loadItems()">
+        <button class="btn btn-purple" onclick="loadItems()">検索</button>
+      </div>
+      <div class="panel">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>画像</th><th>タイトル</th><th>出品者</th><th>ステータス</th><th>操作</th></tr>
+            </thead>
+            <tbody id="itemsTableBody"><tr><td colspan="5" class="empty">読み込み中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- BANモーダル -->
+<div class="modal-overlay" id="banModal">
+  <div class="modal">
+    <h3>🚫 BAN操作</h3>
+    <div id="banTargetName" style="font-size:14px;color:var(--text-sub);margin-bottom:16px"></div>
+    <div class="form-group">
+      <label>停止期間</label>
+      <select id="banDuration">
+        <option value="temp48h">48時間停止</option>
+        <option value="temp1w">1週間停止</option>
+        <option value="permanent">永久停止</option>
+        <option value="unban">BAN解除</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>理由（任意）</label>
+      <input type="text" id="banReason" placeholder="BAN理由を入力">
+    </div>
+    <div class="error-msg" id="banError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-red" onclick="executeBan()">実行</button>
+      <button class="btn btn-outline" onclick="closeBanModal()">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- 取引強制終了モーダル -->
+<div class="modal-overlay" id="forceEndModal">
+  <div class="modal">
+    <h3>⚠️ 取引を強制終了</h3>
+    <p style="font-size:13px;color:var(--text-sub);margin-bottom:16px">両者に通知が送られ、アイテムは募集中に戻ります。</p>
+    <div class="form-group">
+      <label>理由（任意）</label>
+      <input type="text" id="forceEndReason" placeholder="強制終了の理由">
+    </div>
+    <div class="error-msg" id="forceEndError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-red" onclick="executeForceEnd()">強制終了</button>
+      <button class="btn btn-outline" onclick="document.getElementById('forceEndModal').classList.remove('open')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let adminToken  = localStorage.getItem('admin_token');
+  let banTargetId = null;
+  let forceEndId  = null;
+
+  const ah = () => ({ Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' });
+
+  // ── 管理者ログイン ────────────────────────
+  async function adminLogin() {
+    const email    = document.getElementById('adminEmail').value.trim();
+    const password = document.getElementById('adminPassword').value;
+    const errEl    = document.getElementById('loginError');
+    errEl.textContent = '';
+    try {
+      const res  = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.message || 'ログイン失敗'; return; }
+
+      // 管理者チェック
+      const meRes = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${data.token}` } });
+      const me    = await meRes.json();
+      if (!me.isAdmin) { errEl.textContent = '管理者権限がありません'; return; }
+
+      adminToken = data.token;
+      localStorage.setItem('admin_token', adminToken);
+      showPanel();
+    } catch { errEl.textContent = '通信エラーが発生しました'; }
+  }
+
+  function adminLogout() {
+    localStorage.removeItem('admin_token');
+    location.reload();
+  }
+
+  function showPanel() {
+    document.getElementById('loginWrap').style.display  = 'none';
+    document.getElementById('adminPanel').style.display = 'flex';
+    loadDashboard();
+  }
+
+  // ── セクション切り替え ────────────────────
+  function showSection(name) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`section-${name}`).classList.add('active');
+    event.currentTarget.classList.add('active');
+
+    if (name === 'users')     loadUsers();
+    if (name === 'reports')   loadReports('pending');
+    if (name === 'exchanges') loadExchanges('accepted');
+    if (name === 'items')     loadItems();
+  }
+
+  // ── ダッシュボード ────────────────────────
+  async function loadDashboard() {
+    try {
+      const res  = await fetch('/api/admin/stats', { headers: ah() });
+      const data = await res.json();
+      document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card"><div class="stat-num">${data.users}</div><div class="stat-label">総ユーザー</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${data.banned}</div><div class="stat-label">BAN中</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--warning)">${data.pendingReports}</div><div class="stat-label">未対応通報</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--success)">${data.activeExchanges}</div><div class="stat-label">進行中取引</div></div>
+        <div class="stat-card"><div class="stat-num">${data.items}</div><div class="stat-label">出品数</div></div>`;
+      // 通報バッジ
+      if (data.pendingReports > 0) {
+        const badge = document.getElementById('reportBadge');
+        badge.textContent = data.pendingReports;
+        badge.style.display = '';
+      }
+    } catch {}
+  }
+
+  // ── ユーザー一覧 ──────────────────────────
+  async function loadUsers() {
+    const q    = document.getElementById('userSearch')?.value.trim() || '';
+    const body = document.getElementById('usersTableBody');
+    body.innerHTML = '<tr><td colspan="5" class="empty">読み込み中…</td></tr>';
+    try {
+      const res  = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`, { headers: ah() });
+      const data = await res.json();
+      if (!data.users?.length) { body.innerHTML = '<tr><td colspan="5" class="empty">ユーザーが見つかりません</td></tr>'; return; }
+      body.innerHTML = data.users.map(u => `
+        <tr>
+          <td><div class="user-cell">
+            <div class="user-avatar">${u.avatar ? `<img src="${u.avatar}">` : u.username[0].toUpperCase()}</div>
+            <div>
+              <div>${u.username}</div>
+              ${u.isAdmin ? '<span class="badge badge-admin">ADMIN</span>' : ''}
+            </div>
+          </div></td>
+          <td style="color:var(--text-sub);font-size:12px">${u.email}</td>
+          <td>${u.reportCount || 0}</td>
+          <td>${u.isBanned
+            ? `<span class="badge badge-ban">${u.banUntil ? '期間BAN' : '永久BAN'}</span>`
+            : '<span class="badge badge-ok">正常</span>'}</td>
+          <td><div style="display:flex;gap:6px">
+            <button class="btn btn-red" onclick="openBanModal('${u._id}','${u.username}')">BAN</button>
+            <button class="btn btn-outline" onclick="viewUserProfile('${u._id}')">詳細</button>
+          </div></td>
+        </tr>`).join('');
+    } catch { body.innerHTML = '<tr><td colspan="5" class="empty">読み込みに失敗しました</td></tr>'; }
+  }
+
+  function viewUserProfile(id) {
+    window.open(`/profile.html?id=${id}`, '_blank');
+  }
+
+  // ── BAN モーダル ──────────────────────────
+  function openBanModal(id, name) {
+    banTargetId = id;
+    document.getElementById('banTargetName').textContent = `対象：${name}`;
+    document.getElementById('banReason').value = '';
+    document.getElementById('banError').textContent = '';
+    document.getElementById('banModal').classList.add('open');
+  }
+  function closeBanModal() {
+    document.getElementById('banModal').classList.remove('open');
+    banTargetId = null;
+  }
+  async function executeBan() {
+    const duration = document.getElementById('banDuration').value;
+    const reason   = document.getElementById('banReason').value.trim();
+    const errEl    = document.getElementById('banError');
+    errEl.textContent = '';
+    try {
+      const res  = await fetch(`/api/admin/users/${banTargetId}/ban`, {
+        method: 'PUT',
+        headers: ah(),
+        body: JSON.stringify({ duration, reason })
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.message; return; }
+      closeBanModal();
+      loadUsers();
+      alert(`✅ ${data.message}`);
+    } catch { errEl.textContent = '通信エラー'; }
+  }
+
+  // ── 通報一覧 ──────────────────────────────
+  async function loadReports(status = 'pending') {
+    const body = document.getElementById('reportsTableBody');
+    body.innerHTML = '<tr><td colspan="6" class="empty">読み込み中…</td></tr>';
+    try {
+      const res  = await fetch(`/api/admin/reports?status=${status}`, { headers: ah() });
+      const data = await res.json();
+      if (!data.reports?.length) { body.innerHTML = '<tr><td colspan="6" class="empty">通報はありません</td></tr>'; return; }
+      body.innerHTML = data.reports.map(r => `
+        <tr>
+          <td><div class="user-cell">
+            <div class="user-avatar">${r.reporter?.avatar ? `<img src="${r.reporter.avatar}">` : (r.reporter?.username?.[0]||'?').toUpperCase()}</div>
+            ${r.reporter?.username || '不明'}
+          </div></td>
+          <td><div class="user-cell">
+            <div class="user-avatar">${r.reported?.avatar ? `<img src="${r.reported.avatar}">` : (r.reported?.username?.[0]||'?').toUpperCase()}</div>
+            <div>
+              ${r.reported?.username || '不明'}
+              <div style="font-size:11px;color:var(--text-sub)">通報${r.reported?.reportCount||0}件</div>
+            </div>
+          </div></td>
+          <td>${r.reason}</td>
+          <td style="max-width:160px;font-size:12px;color:var(--text-sub)">${r.detail || '-'}</td>
+          <td style="font-size:11px;white-space:nowrap">${new Date(r.createdAt).toLocaleDateString('ja-JP')}</td>
+          <td><div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-red" onclick="openBanModal('${r.reported?._id}','${r.reported?.username}')">BAN</button>
+            <button class="btn btn-green" onclick="updateReport('${r._id}','reviewed')">対応済み</button>
+            <button class="btn btn-gray" onclick="updateReport('${r._id}','dismissed')">却下</button>
+          </div></td>
+        </tr>`).join('');
+    } catch { body.innerHTML = '<tr><td colspan="6" class="empty">読み込みに失敗しました</td></tr>'; }
+  }
+
+  async function updateReport(id, status) {
+    await fetch(`/api/admin/reports/${id}`, {
+      method: 'PUT', headers: ah(), body: JSON.stringify({ status })
+    });
+    loadReports('pending');
+    loadDashboard();
+  }
+
+  // ── 取引一覧 ──────────────────────────────
+  async function loadExchanges(status = 'accepted') {
+    const body = document.getElementById('exchangesTableBody');
+    body.innerHTML = '<tr><td colspan="5" class="empty">読み込み中…</td></tr>';
+    try {
+      const res  = await fetch(`/api/admin/exchanges?status=${status}`, { headers: ah() });
+      const data = await res.json();
+      if (!data.exchanges?.length) { body.innerHTML = '<tr><td colspan="5" class="empty">取引はありません</td></tr>'; return; }
+
+      const statusLabel = { pending:'申請中', accepted:'進行中', completed:'完了', rejected:'拒否', cancelled:'キャンセル' };
+      const statusColor = { pending:'badge-warn', accepted:'badge-ok', completed:'badge-admin', rejected:'badge-ban', cancelled:'badge-ban' };
+
+      body.innerHTML = data.exchanges.map(e => `
+        <tr>
+          <td><div class="user-cell">
+            <div class="user-avatar">${e.requester?.username?.[0]?.toUpperCase()||'?'}</div>
+            ${e.requester?.username||'不明'}
+          </div></td>
+          <td><div class="user-cell">
+            <div class="user-avatar">${e.owner?.username?.[0]?.toUpperCase()||'?'}</div>
+            ${e.owner?.username||'不明'}
+          </div></td>
+          <td style="font-size:12px">
+            <div>${e.targetItem?.title||'不明'}</div>
+            <div style="color:var(--text-sub)">⇄ ${e.offerItem?.title||'不明'}</div>
+          </td>
+          <td><span class="badge ${statusColor[e.status]||''}">${statusLabel[e.status]||e.status}</span></td>
+          <td>${['pending','accepted'].includes(e.status)
+            ? `<button class="btn btn-red" onclick="openForceEnd('${e._id}')">強制終了</button>`
+            : '-'}</td>
+        </tr>`).join('');
+    } catch { body.innerHTML = '<tr><td colspan="5" class="empty">読み込みに失敗しました</td></tr>'; }
+  }
+
+  function openForceEnd(id) {
+    forceEndId = id;
+    document.getElementById('forceEndReason').value = '';
+    document.getElementById('forceEndError').textContent = '';
+    document.getElementById('forceEndModal').classList.add('open');
+  }
+  async function executeForceEnd() {
+    const reason = document.getElementById('forceEndReason').value.trim();
+    const errEl  = document.getElementById('forceEndError');
+    errEl.textContent = '';
+    try {
+      const res  = await fetch(`/api/admin/exchanges/${forceEndId}/force-end`, {
+        method: 'PUT', headers: ah(), body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.message; return; }
+      document.getElementById('forceEndModal').classList.remove('open');
+      loadExchanges('accepted');
+      alert('✅ 取引を強制終了しました');
+    } catch { errEl.textContent = '通信エラー'; }
+  }
+
+  // ── アイテム一覧 ──────────────────────────
+  async function loadItems() {
+    const q    = document.getElementById('itemSearch')?.value.trim() || '';
+    const body = document.getElementById('itemsTableBody');
+    body.innerHTML = '<tr><td colspan="5" class="empty">読み込み中…</td></tr>';
+    try {
+      const params = new URLSearchParams({ page: 1, limit: 20 });
+      if (q) params.append('q', q);
+      const res  = await fetch(`/api/items?${params}`);
+      const data = await res.json();
+      if (!data.items?.length) { body.innerHTML = '<tr><td colspan="5" class="empty">アイテムはありません</td></tr>'; return; }
+      body.innerHTML = data.items.map(item => `
+        <tr>
+          <td>${item.images?.[0]
+            ? `<img src="${item.images[0]}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;">`
+            : '🎮'}</td>
+          <td>${item.title}</td>
+          <td>${item.owner?.username||'不明'}</td>
+          <td>${item.status}</td>
+          <td><button class="btn btn-red" onclick="deleteItem('${item._id}','${item.title}')">削除</button></td>
+        </tr>`).join('');
+    } catch { body.innerHTML = '<tr><td colspan="5" class="empty">読み込みに失敗しました</td></tr>'; }
+  }
+
+  async function deleteItem(id, title) {
+    if (!confirm(`「${title}」を削除しますか？`)) return;
+    const res = await fetch(`/api/admin/items/${id}`, { method: 'DELETE', headers: ah() });
+    if (res.ok) { alert('削除しました'); loadItems(); }
+    else alert('削除に失敗しました');
+  }
+
+  // モーダル外クリックで閉じる
+  document.getElementById('banModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('banModal')) closeBanModal();
+  });
+  document.getElementById('forceEndModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('forceEndModal'))
+      document.getElementById('forceEndModal').classList.remove('open');
+  });
+
+  // 既存トークンでログイン済みなら自動表示
+  if (adminToken) {
+    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${adminToken}` } })
+      .then(r => r.json())
+      .then(me => { if (me.isAdmin) showPanel(); else localStorage.removeItem('admin_token'); })
+      .catch(() => localStorage.removeItem('admin_token'));
+  }
+</script>
+</body>
+</html>
