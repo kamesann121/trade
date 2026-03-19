@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const auth     = require('../middleware/auth');
 const Item     = require('../models/Item');
 const { cloudinary, uploadItem: upload } = require('../config/cloudinary');
+const { containsBadWord } = require('../middleware/filterBadWords');
 
 // ── 出品 ────────────────────────────────────
 router.post('/', auth, upload.array('images', 5), [
@@ -18,6 +19,11 @@ router.post('/', auth, upload.array('images', 5), [
     // descriptionから#タグを自動抽出
     const tagMatches = (description || '').match(/#[\w\u3040-\u9fff]+/g) || [];
     const tags = tagMatches.map(t => t.slice(1).toLowerCase());
+
+    // 禁句チェック
+    if (await containsBadWord(title) || await containsBadWord(description) || await containsBadWord(wantTitle)) {
+      return res.status(400).json({ message: '不適切な言葉が含まれています。内容を修正してください。' });
+    }
 
     const item = await Item.create({
       owner: req.user.id,
