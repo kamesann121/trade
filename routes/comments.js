@@ -3,6 +3,7 @@ const router  = express.Router();
 const auth    = require('../middleware/auth');
 const Comment = require('../models/Comment');
 const Item    = require('../models/Item');
+const { maskBadWords } = require('../middleware/filterBadWords');
 
 // ── コメント一覧取得 ──────────────────────────
 router.get('/:itemId', async (req, res) => {
@@ -26,10 +27,12 @@ router.post('/:itemId', auth, async (req, res) => {
     const item = await Item.findById(req.params.itemId);
     if (!item) return res.status(404).json({ message: 'アイテムが見つかりません' });
 
+    const filteredText = await maskBadWords(text.trim());
+
     const comment = await Comment.create({
       item:   req.params.itemId,
       author: req.user.id,
-      text:   text.trim()
+      text:   filteredText
     });
     await comment.populate('author', 'username avatar');
     res.status(201).json(comment);
