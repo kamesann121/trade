@@ -305,7 +305,10 @@ async function loadItemDetail() {
 
           <div class="detail-actions">
             ${isOwner
-              ? `<button class="btn-sm btn-outline" onclick="deleteItem('${item._id}')">🗑 削除</button>`
+              ? `<div style="display:flex;gap:8px">
+                  <button class="btn-primary" onclick="openEditForm('${item._id}')">✏️ 編集</button>
+                  <button class="btn-sm btn-outline" onclick="deleteItem('${item._id}')">🗑 削除</button>
+                </div>`
               : item.status === '募集中'
                 ? `<button class="btn-primary"
                     onclick="location.href='/exchange.html?id=${item._id}'">🔄 交換を申請する</button>
@@ -313,6 +316,40 @@ async function loadItemDetail() {
                     onclick="location.href='/messages.html?to=${item.owner?._id}'">💬 メッセージ</button>`
                 : `<div class="closed-note">このアイテムは現在交換受付中ではありません</div>`
             }
+          </div>
+
+          <!-- 編集フォーム（初期非表示） -->
+          <div id="editItemForm" style="display:none;margin-top:20px;padding-top:20px;border-top:2px solid var(--border)">
+            <div style="font-size:15px;font-weight:900;margin-bottom:16px">✏️ 出品内容を編集</div>
+            <div class="form-group">
+              <label style="font-size:13px;color:var(--text-sub);display:block;margin-bottom:6px">アイテム名 <span style="color:var(--accent2)">*</span></label>
+              <input type="text" id="editTitle" value="${item.title}"
+                style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;">
+            </div>
+            <div class="form-group" style="margin-top:12px">
+              <label style="font-size:13px;color:var(--text-sub);display:block;margin-bottom:6px">説明・#タグ</label>
+              <textarea id="editDescription" rows="4"
+                style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;resize:vertical;font-family:inherit;outline:none;">${item.description || ''}</textarea>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+              <label style="font-size:13px;color:var(--text-sub);display:block;margin-bottom:6px">🔄 求めるアイテム名</label>
+              <input type="text" id="editWantTitle" value="${item.wantTitle || ''}"
+                style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;">
+            </div>
+            <div class="form-group" style="margin-top:12px">
+              <label style="font-size:13px;color:var(--text-sub);display:block;margin-bottom:6px">画像を追加（既存の画像は保持されます）</label>
+              <div style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;color:var(--text-sub);"
+                onclick="document.getElementById('editImageInput').click()">
+                📷 クリックして画像を追加（最大5枚）
+              </div>
+              <input type="file" id="editImageInput" accept="image/*" multiple style="display:none" onchange="previewEditImages(event)">
+              <div id="editImagePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+            </div>
+            <div style="color:var(--danger);font-size:13px;margin-bottom:10px" id="editError"></div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <button class="btn-primary" onclick="saveEditItem('${item._id}')">保存する</button>
+              <button class="btn-sm btn-outline" style="flex:1;padding:12px" onclick="closeEditForm()">キャンセル</button>
+            </div>
           </div>
         </div>
       </div>
@@ -340,6 +377,75 @@ async function loadItemDetail() {
     }
   } catch {
     main.innerHTML = '<div class="loading">読み込みに失敗しました</div>';
+  }
+}
+
+// ── 編集フォーム操作 ──────────────────────────
+let editSelectedFiles = [];
+
+function openEditForm(id) {
+  document.getElementById('editItemForm').style.display = '';
+  document.getElementById('editItemForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeEditForm() {
+  document.getElementById('editItemForm').style.display = 'none';
+  editSelectedFiles = [];
+  document.getElementById('editImagePreview').innerHTML = '';
+}
+
+function previewEditImages(event) {
+  const newFiles = Array.from(event.target.files);
+  editSelectedFiles = [...editSelectedFiles, ...newFiles].slice(0, 5);
+  event.target.value = '';
+  const preview = document.getElementById('editImagePreview');
+  preview.innerHTML = '';
+  editSelectedFiles.forEach((file, i) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:relative;display:inline-block;';
+      wrap.innerHTML = `
+        <img src="${e.target.result}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;display:block;border:2px solid var(--border);">
+        <button onclick="removeEditImage(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:2px solid #fff;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;padding:0;font-weight:bold;">×</button>`;
+      preview.appendChild(wrap);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function removeEditImage(index) {
+  editSelectedFiles.splice(index, 1);
+  previewEditImages({ target: { files: [], value: '' } });
+}
+
+async function saveEditItem(itemId) {
+  const title       = document.getElementById('editTitle').value.trim();
+  const description = document.getElementById('editDescription').value.trim();
+  const wantTitle   = document.getElementById('editWantTitle').value.trim();
+  const errEl       = document.getElementById('editError');
+  errEl.textContent = '';
+
+  if (!title) { errEl.textContent = 'アイテム名は必須です'; return; }
+
+  const formData = new FormData();
+  formData.append('title', title);
+  if (description) formData.append('description', description);
+  if (wantTitle)   formData.append('wantTitle', wantTitle);
+  editSelectedFiles.forEach(f => formData.append('images', f));
+
+  try {
+    const res  = await fetch(`/api/items/${itemId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.message || '保存に失敗しました'; return; }
+    alert('✅ 保存しました！');
+    location.reload();
+  } catch {
+    errEl.textContent = '通信エラーが発生しました';
   }
 }
 
