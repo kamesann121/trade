@@ -19,20 +19,29 @@ const userSchema = new mongoose.Schema({
   }],
   // BAN関連
   isBanned:    { type: Boolean, default: false },
-  banUntil:    { type: Date, default: null },     // nullなら永久BAN
+  banUntil:    { type: Date, default: null },
   banReason:   { type: String, default: '' },
-  reportCount: { type: Number, default: 0 },      // 通報された件数
+  reportCount: { type: Number, default: 0 },
   // デバイスフィンガープリント（サブ垢対策）
   fingerprints: [{ type: String }],
   // 管理者フラグ
-  isAdmin: { type: Boolean, default: false }
+  isAdmin: { type: Boolean, default: false },
+
+  // ── パスワードリセット／変更用 ────────────
+  passwordResetCode:    { type: String },
+  passwordResetExpires: { type: Date },
+
+  // ── メールアドレス変更用 ──────────────────
+  emailChangeToken:   { type: String },
+  emailChangeTo:      { type: String },
+  emailChangeExpires: { type: Date }
+
 }, { timestamps: true });
 
-// BANチェックメソッド
 userSchema.methods.isBannedNow = function() {
   if (!this.isBanned) return false;
-  if (!this.banUntil) return true; // 永久BAN
-  return new Date() < this.banUntil; // 期間BAN
+  if (!this.banUntil) return true;
+  return new Date() < this.banUntil;
 };
 
 userSchema.pre('save', async function(next) {
