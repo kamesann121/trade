@@ -3,6 +3,7 @@ const router   = express.Router();
 const auth     = require('../middleware/auth');
 const User     = require('../models/User');
 const { cloudinary, uploadAvatar: upload } = require('../config/cloudinary');
+const { containsBadWord } = require('../middleware/filterBadWords');
 
 // ── プロフィール更新 ──────────────────────────
 router.put('/profile', auth, async (req, res) => {
@@ -14,6 +15,11 @@ router.put('/profile', auth, async (req, res) => {
       return res.status(400).json({ message: 'ニックネームは16文字以内にしてください' });
     if (bio && bio.length > 40)
       return res.status(400).json({ message: '自己紹介は40文字以内にしてください' });
+
+    // 禁句チェック
+    if (await containsBadWord(username) || await containsBadWord(bio)) {
+      return res.status(400).json({ message: '不適切な言葉が含まれています。内容を修正してください。' });
+    }
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
