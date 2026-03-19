@@ -327,6 +327,49 @@
   </main>
 </div>
 
+<!-- 会話モーダル -->
+<div class="modal-overlay" id="convModal">
+  <div class="modal" style="max-width:540px;height:80vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0">💬 取引会話</h3>
+      <button class="btn btn-outline" onclick="document.getElementById('convModal').classList.remove('open')">閉じる</button>
+    </div>
+    <div id="convMsgList" style="flex:1;overflow-y:auto;background:var(--bg);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+      <div class="empty">読み込み中…</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="convMsgInput" placeholder="運営としてメッセージを送る…"
+        style="flex:1;padding:9px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;"
+        onkeydown="if(event.key==='Enter')sendAdminMsg()">
+      <button class="btn btn-purple" onclick="sendAdminMsg()">送信</button>
+    </div>
+    <div class="error-msg" id="convMsgError" style="margin-top:6px"></div>
+  </div>
+</div>
+
+<!-- 取引チャットモーダル -->
+<div class="modal-overlay" id="exchangeChatModal">
+  <div class="modal" style="max-width:560px;height:80vh;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0">
+      <h3 style="margin:0">💬 取引チャット</h3>
+      <button onclick="document.getElementById('exchangeChatModal').classList.remove('open')"
+        style="background:none;border:none;color:var(--text-sub);font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div id="chatExchangeInfo" style="font-size:12px;color:var(--text-sub);margin-bottom:12px;padding:10px;background:var(--bg);border-radius:8px;flex-shrink:0"></div>
+    <div id="adminChatMsgs" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px">
+      <div class="empty">読み込み中…</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      <input type="text" id="adminChatInput" placeholder="[運営]として送信…"
+        style="flex:1;padding:9px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;"
+        onkeydown="if(event.key==='Enter')sendAdminMsg()">
+      <button class="btn btn-purple" onclick="sendAdminMsg()">送信</button>
+      <button class="btn btn-red" onclick="openForceEndFromChat()">強制終了</button>
+    </div>
+    <div class="error-msg" id="adminChatError" style="margin-top:6px"></div>
+  </div>
+</div>
+
 <!-- BANモーダル -->
 <div class="modal-overlay" id="banModal">
   <div class="modal">
@@ -582,9 +625,12 @@
             <div style="color:var(--text-sub)">⇄ ${e.offerItem?.title||'不明'}</div>
           </td>
           <td><span class="badge ${statusColor[e.status]||''}">${statusLabel[e.status]||e.status}</span></td>
-          <td>${['pending','accepted'].includes(e.status)
-            ? `<button class="btn btn-red" onclick="openForceEnd('${e._id}')">強制終了</button>`
-            : '-'}</td>
+          <td><div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-purple" onclick="openConvModal('${e._id}')">💬 会話</button>
+            ${['pending','accepted'].includes(e.status)
+              ? `<button class="btn btn-red" onclick="openForceEnd('${e._id}')">強制終了</button>`
+              : ''}
+          </div></td>
         </tr>`).join('');
     } catch { body.innerHTML = '<tr><td colspan="5" class="empty">読み込みに失敗しました</td></tr>'; }
   }
@@ -642,6 +688,145 @@
     else alert('削除に失敗しました');
   }
 
+  // ── 取引会話 ──────────────────────────────────
+  let currentConvExchangeId = null;
+
+  async function openConvModal(exchangeId) {
+    currentConvExchangeId = exchangeId;
+    document.getElementById('convMsgInput').value = '';
+    document.getElementById('convMsgError').textContent = '';
+    document.getElementById('convModal').classList.add('open');
+    await loadConvMessages();
+  }
+
+  async function loadConvMessages() {
+    const list = document.getElementById('convMsgList');
+    list.innerHTML = '<div class="empty">読み込み中…</div>';
+    try {
+      const res  = await fetch(`/api/admin/exchanges/${currentConvExchangeId}/messages`, { headers: ah() });
+      const msgs = await res.json();
+      if (!Array.isArray(msgs) || !msgs.length) {
+        list.innerHTML = '<div class="empty">メッセージはありません</div>';
+        return;
+      }
+      list.innerHTML = msgs.map(m => {
+        const isAdmin = m.text?.startsWith('【運営より】');
+        return `<div style="display:flex;gap:8px;align-items:flex-start">
+          <div style="width:28px;height:28px;border-radius:50%;background:${isAdmin ? 'var(--accent2)' : 'var(--accent)'};
+            display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">
+            ${isAdmin ? '🛡️' : (m.sender?.username?.[0]||'?').toUpperCase()}
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;color:var(--text-sub);margin-bottom:3px">${m.sender?.username||'不明'} · ${new Date(m.createdAt).toLocaleString('ja-JP',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+            <div style="font-size:13px;background:var(--card);padding:8px 12px;border-radius:10px;${isAdmin?'border:1px solid var(--accent2);':''}">${m.text}</div>
+          </div>
+        </div>`;
+      }).join('');
+      list.scrollTop = list.scrollHeight;
+    } catch { list.innerHTML = '<div class="empty">読み込みに失敗しました</div>'; }
+  }
+
+  async function sendAdminMsg() {
+    const input = document.getElementById('convMsgInput');
+    const errEl = document.getElementById('convMsgError');
+    const text  = input.value.trim();
+    errEl.textContent = '';
+    if (!text) return;
+    try {
+      const res  = await fetch(`/api/admin/exchanges/${currentConvExchangeId}/message`, {
+        method: 'POST', headers: ah(), body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.message; return; }
+      input.value = '';
+      await loadConvMessages();
+    } catch { errEl.textContent = '通信エラー'; }
+  }
+
+  // ── 取引チャット ──────────────────────────────
+  let currentChatExchangeId = null;
+  let chatPollTimer = null;
+
+  async function openExchangeChat(exchangeId) {
+    currentChatExchangeId = exchangeId;
+    document.getElementById('exchangeChatModal').classList.add('open');
+    document.getElementById('adminChatError').textContent = '';
+    await loadAdminChat();
+    clearInterval(chatPollTimer);
+    chatPollTimer = setInterval(loadAdminChat, 4000);
+  }
+
+  async function loadAdminChat() {
+    const msgs = document.getElementById('adminChatMsgs');
+    const info = document.getElementById('chatExchangeInfo');
+    try {
+      const res  = await fetch(`/api/admin/exchanges/${currentChatExchangeId}/messages`, { headers: ah() });
+      const data = await res.json();
+      if (!res.ok) { msgs.innerHTML = '<div class="empty">読み込みに失敗しました</div>'; return; }
+
+      // 取引情報表示
+      const e = data.exchange;
+      info.innerHTML = `${e.requester?.username} ⇄ ${e.owner?.username} ／ステータス：${e.status}`;
+
+      if (!data.messages.length) {
+        msgs.innerHTML = '<div class="empty">まだメッセージはありません</div>';
+        return;
+      }
+
+      const wasAtBottom = msgs.scrollHeight - msgs.scrollTop <= msgs.clientHeight + 50;
+
+      msgs.innerHTML = data.messages.map(m => {
+        const isAdmin = m.isAdmin;
+        const name    = isAdmin ? '🛡️ 運営' : (m.sender?.username || '不明');
+        const time    = new Date(m.createdAt).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+        return `
+          <div style="display:flex;flex-direction:column;${isAdmin ? 'align-items:flex-end' : 'align-items:flex-start'}">
+            <div style="font-size:11px;color:var(--text-sub);margin-bottom:3px">${name}</div>
+            <div style="max-width:75%;padding:8px 12px;border-radius:12px;font-size:13px;line-height:1.6;word-break:break-word;
+              ${isAdmin
+                ? 'background:rgba(124,92,252,0.3);color:var(--text);border-radius:12px 12px 4px 12px;'
+                : 'background:var(--card);border:1px solid var(--border);border-radius:12px 12px 12px 4px;'}">
+              ${m.text}
+            </div>
+            <div style="font-size:10px;color:var(--text-sub);margin-top:2px">${time}</div>
+          </div>`;
+      }).join('');
+
+      if (wasAtBottom) msgs.scrollTop = msgs.scrollHeight;
+    } catch {}
+  }
+
+  async function sendAdminMsg() {
+    const input = document.getElementById('adminChatInput');
+    const errEl = document.getElementById('adminChatError');
+    const text  = input.value.trim();
+    errEl.textContent = '';
+    if (!text) return;
+    input.value = '';
+    try {
+      const res  = await fetch(`/api/admin/exchanges/${currentChatExchangeId}/messages`, {
+        method: 'POST', headers: ah(), body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.message; return; }
+      loadAdminChat();
+    } catch { errEl.textContent = '通信エラー'; }
+  }
+
+  function openForceEndFromChat() {
+    document.getElementById('exchangeChatModal').classList.remove('open');
+    clearInterval(chatPollTimer);
+    openForceEnd(currentChatExchangeId);
+  }
+
+  // チャットモーダル閉じたらポーリング停止
+  document.getElementById('exchangeChatModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('exchangeChatModal')) {
+      document.getElementById('exchangeChatModal').classList.remove('open');
+      clearInterval(chatPollTimer);
+    }
+  });
+
   // ── 禁句ワード ──────────────────────────────
   async function loadBadWords() {
     const list  = document.getElementById('badwordList');
@@ -687,6 +872,10 @@
   }
 
   // モーダル外クリックで閉じる
+  document.getElementById('convModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('convModal'))
+      document.getElementById('convModal').classList.remove('open');
+  });
   document.getElementById('banModal').addEventListener('click', e => {
     if (e.target === document.getElementById('banModal')) closeBanModal();
   });
