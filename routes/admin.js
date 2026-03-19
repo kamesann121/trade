@@ -6,6 +6,8 @@ const Report  = require('../models/Report');
 const Item    = require('../models/Item');
 const ExchangeRequest = require('../models/ExchangeRequest');
 const Message = require('../models/Message');
+const BadWord = require('../models/BadWord');
+const { invalidateCache } = require('../middleware/filterBadWords');
 
 // ── ユーザー一覧・検索 ────────────────────────
 router.get('/users', adminAuth, async (req, res) => {
@@ -165,6 +167,37 @@ router.post('/setup', async (req, res) => {
     );
     if (!user) return res.status(404).json({ message: 'ユーザーが見つかりません' });
     res.json({ message: `${user.username} を管理者に設定しました` });
+  } catch { res.status(500).json({ message: 'サーバーエラー' }); }
+});
+
+// ── 禁句ワード一覧 ───────────────────────────
+router.get('/badwords', adminAuth, async (req, res) => {
+  try {
+    const words = await BadWord.find().sort({ createdAt: -1 });
+    res.json(words);
+  } catch { res.status(500).json({ message: 'サーバーエラー' }); }
+});
+
+// ── 禁句ワード追加 ────────────────────────────
+router.post('/badwords', adminAuth, async (req, res) => {
+  try {
+    const { word } = req.body;
+    if (!word?.trim()) return res.status(400).json({ message: 'ワードを入力してください' });
+    const bw = await BadWord.create({ word: word.trim().toLowerCase(), addedBy: req.user.id });
+    invalidateCache();
+    res.status(201).json(bw);
+  } catch (err) {
+    if (err.code === 11000) return res.status(400).json({ message: 'すでに登録済みです' });
+    res.status(500).json({ message: 'サーバーエラー' });
+  }
+});
+
+// ── 禁句ワード削除 ────────────────────────────
+router.delete('/badwords/:id', adminAuth, async (req, res) => {
+  try {
+    await BadWord.findByIdAndDelete(req.params.id);
+    invalidateCache();
+    res.json({ message: '削除しました' });
   } catch { res.status(500).json({ message: 'サーバーエラー' }); }
 });
 
