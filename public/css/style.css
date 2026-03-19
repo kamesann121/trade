@@ -884,3 +884,10 @@ body {
   z-index: 1001;
 }
 .img-viewer-close:hover { background: rgba(255,255,255,0.3); }
+
+/* ─── REQUIRED FIELD MARKER ──────────────── */
+.required {
+  color: var(--danger);
+  font-weight: 700;
+  margin-left: 2px;
+}
