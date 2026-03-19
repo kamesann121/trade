@@ -3,6 +3,7 @@ const router  = express.Router();
 const auth    = require('../middleware/auth');
 const Message = require('../models/Message');
 const User    = require('../models/User');
+const { maskBadWords } = require('../middleware/filterBadWords');
 
 async function addNotification(userId, type, message, link) {
   await User.findByIdAndUpdate(userId, {
@@ -19,12 +20,14 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: '自分にはメッセージを送れません' });
     const receiver = await User.findById(receiverId);
     if (!receiver) return res.status(404).json({ message: 'ユーザーが見つかりません' });
+    const filteredText = await maskBadWords(text.trim());
+
     const conversationId = Message.makeConvId(req.user.id, receiverId);
     const msg = await Message.create({
       conversationId,
       sender:   req.user.id,
       receiver: receiverId,
-      text:     text.trim()
+      text:     filteredText
     });
     const sender = await User.findById(req.user.id).select('username');
     await addNotification(
