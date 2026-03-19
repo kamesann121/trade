@@ -11,28 +11,13 @@ connectDB();
 
 // ── セキュリティヘッダー ──────────────────────
 app.use(helmet({
-  contentSecurityPolicy: false // Firebaseのインラインスクリプトと競合するためOFF
+  contentSecurityPolicy: false
 }));
 
-// ── CORS（本番は自分のドメインだけ許可） ───────
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000'];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORSポリシーにより拒否されました'));
-    }
-  },
-  credentials: true
-}));
+// ── CORS ─────────────────────────────────────
+app.use(cors());
 
 // ── レートリミット ────────────────────────────
-
-// ログイン・登録：1IPあたり15分で10回まで
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -41,7 +26,6 @@ const authLimiter = rateLimit({
   legacyHeaders: false
 });
 
-// 通報：1IPあたり1時間で20回まで
 const reportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 20,
@@ -50,7 +34,6 @@ const reportLimiter = rateLimit({
   legacyHeaders: false
 });
 
-// 出品：1IPあたり1時間で30回まで
 const postLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 30,
@@ -59,7 +42,6 @@ const postLimiter = rateLimit({
   legacyHeaders: false
 });
 
-// API全体：1IPあたり15分で300回まで
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
