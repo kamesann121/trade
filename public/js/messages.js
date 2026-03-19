@@ -106,8 +106,20 @@ async function loadMessages() {
     }
 
     msgs.innerHTML = data.map(m => {
-      const isMine = String(m.sender?._id || m.sender) === myId;
-      const time   = new Date(m.createdAt).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+      const isMine  = String(m.sender?._id || m.sender) === myId;
+      const isAdmin = m.isAdmin;
+      const time    = new Date(m.createdAt).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+      if (isAdmin) {
+        // 管理者メッセージは特別スタイル（中央寄せ）
+        return `
+          <div style="text-align:center;margin:8px 0">
+            <div style="display:inline-block;background:rgba(240,168,0,0.15);border:1px solid rgba(240,168,0,0.4);
+              border-radius:12px;padding:8px 16px;font-size:13px;color:var(--warning);max-width:85%">
+              🛡️ ${escHtml(m.text).replace(/\n/g,'<br>')}
+              <div style="font-size:10px;color:var(--text-sub);margin-top:4px">${time}</div>
+            </div>
+          </div>`;
+      }
       return `
         <div class="msg-row ${isMine ? 'mine' : 'theirs'}">
           ${!isMine ? `<div class="msg-avatar">${(m.sender?.username?.[0] || '?').toUpperCase()}</div>` : ''}
