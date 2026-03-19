@@ -5,6 +5,11 @@ const auth     = require('../middleware/auth');
 const Item     = require('../models/Item');
 const { cloudinary, uploadItem: upload } = require('../config/cloudinary');
 const { containsBadWord } = require('../middleware/filterBadWords');
+// 正規表現の特殊文字をエスケープ（ReDoS対策）
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 
 // ── 出品 ────────────────────────────────────
 router.post('/', auth, upload.array('images', 5), [
@@ -50,9 +55,9 @@ router.get('/', async (req, res) => {
       } else {
         // テキスト検索
         filter.$or = [
-          { title:       new RegExp(keyword, 'i') },
-          { description: new RegExp(keyword, 'i') },
-          { wantTitle:   new RegExp(keyword, 'i') },
+          { title:       new RegExp(escapeRegex(keyword), 'i') },
+          { description: new RegExp(escapeRegex(keyword), 'i') },
+          { wantTitle:   new RegExp(escapeRegex(keyword), 'i') },
           { tags:        keyword.toLowerCase() }
         ];
       }
