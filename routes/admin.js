@@ -170,6 +170,140 @@ router.post('/setup', async (req, res) => {
   } catch { res.status(500).json({ message: 'サーバーエラー' }); }
 });
 
+// ── 取引会話に管理者メッセージを送信 ──────────
+router.post('/exchanges/:id/message', adminAuth, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text?.trim()) return res.status(400).json({ message: 'メッセージを入力してください' });
+
+    const exchange = await ExchangeRequest.findById(req.params.id);
+    if (!exchange) return res.status(404).json({ message: '取引が見つかりません' });
+
+    // 管理者ユーザーを取得（送信者として使用）
+    const admin = await User.findById(req.user.id).select('_id username');
+
+    // 取引の両者に同じメッセージを送る
+    const convId = Message.makeConvId(
+      exchange.requester.toString(),
+      exchange.owner.toString()
+    );
+
+    // requesterへ
+    await Message.create({
+      conversationId: convId,
+      sender:   admin._id,
+      receiver: exchange.requester,
+      text:     `【運営より】${text.trim()}`,
+      read:     false
+    });
+
+    // ownerへ
+    await Message.create({
+      conversationId: convId,
+      sender:   admin._id,
+      receiver: exchange.owner,
+      text:     `【運営より】${text.trim()}`,
+      read:     false
+    });
+
+    // 両者に通知
+    const notifMsg = `運営からメッセージが届きました`;
+    for (const userId of [exchange.requester, exchange.owner]) {
+      await User.findByIdAndUpdate(userId, {
+        $push: { notifications: {
+          type: 'dm', message: notifMsg,
+          link: '/messages.html', read: false, createdAt: new Date()
+        }}
+      });
+    }
+
+    res.json({ message: '送信しました' });
+  } catch (err) {
+    res.status(500).json({ message: 'サーバーエラー', error: err.message });
+  }
+});
+
+// ── 取引会話履歴を取得（管理者用） ──────────
+router.get('/exchanges/:id/messages', adminAuth, async (req, res) => {
+  try {
+    const exchange = await ExchangeRequest.findById(req.params.id);
+    if (!exchange) return res.status(404).json({ message: '取引が見つかりません' });
+
+    const convId = Message.makeConvId(
+      exchange.requester.toString(),
+      exchange.owner.toString()
+    );
+
+    const messages = await Message.find({ conversationId: convId })
+      .populate('sender', 'username avatar')
+      .sort({ createdAt: 1 });
+
+    res.json(messages);
+  } catch {
+    res.status(500).json({ message: 'サーバーエラー' });
+  }
+});
+
+// ── 取引のメッセージ履歴取得 ──────────────────
+router.get('/exchanges/:id/messages', adminAuth, async (req, res) => {
+  try {
+    const exchange = await ExchangeRequest.findById(req.params.id)
+      .populate('requester', 'username avatar')
+      .populate('owner',     'username avatar');
+    if (!exchange) return res.status(404).json({ message: '取引が見つかりません' });
+
+    const convId = Message.makeConvId(
+      exchange.requester._id.toString(),
+      exchange.owner._id.toString()
+    );
+
+    const messages = await Message.find({ conversationId: convId })
+      .populate('sender', 'username avatar')
+      .sort({ createdAt: 1 });
+
+    res.json({ exchange, messages, convId });
+  } catch (err) { res.status(500).json({ message: 'サーバーエラー', error: err.message }); }
+});
+
+// ── 管理者がメッセージ送信 ────────────────────
+router.post('/exchanges/:id/messages', adminAuth, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text?.trim()) return res.status(400).json({ message: 'メッセージを入力してください' });
+
+    const exchange = await ExchangeRequest.findById(req.params.id)
+      .populate('requester', 'username')
+      .populate('owner',     'username');
+    if (!exchange) return res.status(404).json({ message: '取引が見つかりません' });
+
+    const adminUser = await User.findById(req.user.id).select('username');
+    const convId = Message.makeConvId(
+      exchange.requester._id.toString(),
+      exchange.owner._id.toString()
+    );
+
+    // 管理者メッセージを両者に送信
+    const msg = await Message.create({
+      conversationId: convId,
+      sender:   req.user.id,
+      receiver: exchange.requester._id, // 便宜上requesterをreceiverに
+      text:     `[運営] ${text.trim()}`,
+      isAdmin:  true,
+      senderName: adminUser.username
+    });
+
+    // 両者に通知
+    const notifMsg = `運営からメッセージが届きました`;
+    for (const uid of [exchange.requester._id, exchange.owner._id]) {
+      await User.findByIdAndUpdate(uid, {
+        $push: { notifications: { type: 'dm', message: notifMsg, link: '/messages.html', read: false, createdAt: new Date() } }
+      });
+    }
+
+    res.status(201).json(msg);
+  } catch (err) { res.status(500).json({ message: 'サーバーエラー', error: err.message }); }
+});
+
 // ── 禁句ワード一覧 ───────────────────────────
 router.get('/badwords', adminAuth, async (req, res) => {
   try {
