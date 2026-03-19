@@ -37,7 +37,7 @@
     <div class="post-form card">
       <!-- 画像 -->
       <div class="form-group">
-        <label>画像（最大5枚・各5MBまで）</label>
+        <label>画像（最大5枚・各5MBまで）<span class="required">*</span></label>
         <div class="image-upload-area" onclick="document.getElementById('imageInput').click()">
           <span>📷 クリックして画像を追加</span>
         </div>
@@ -54,7 +54,7 @@
 
       <!-- 説明（#タグ対応） -->
       <div class="form-group">
-        <label>説明・#タグ</label>
+        <label>説明・#タグ <span class="required">*</span></label>
         <textarea id="description" rows="5"
           placeholder="説明を書いてください。&#10;#タグをつけると検索されやすくなります。&#10;&#10;例：&#10;レアスキンです。交換希望！&#10;#フォートナイト #スキン #レジェンド"></textarea>
         <div class="hint" style="margin-top:6px">💡 #タグをつけると検索でヒットしやすくなります</div>
@@ -63,18 +63,39 @@
 
       <!-- 求めるもの -->
       <div class="form-group">
-        <label>🔄 求めるアイテム名</label>
+        <label>🔄 求めるアイテム名 <span class="required">*</span></label>
         <input type="text" id="wantTitle" placeholder="例：バトルパス、Vバックスなど">
       </div>
 
       <div class="error-msg" id="postError"></div>
-      <button class="btn-primary" onclick="postItem()">出品する</button>
+      <div style="display:flex; gap:12px; margin-top:4px;">
+        <button class="btn-outline btn-sm" style="flex:1; padding:12px; font-size:15px; font-weight:700; border-radius:8px;"
+          onclick="if(confirm('入力内容を破棄してホームに戻りますか？')) location.href='/home.html'">キャンセル</button>
+        <button class="btn-primary" id="submitBtn" style="flex:2;" onclick="handlePostItem()">出品する</button>
+      </div>
     </div>
   </main>
 
   <script src="/js/auth.js"></script>
   <script src="/js/items.js"></script>
   <script>
+    // 二重送信防止ラッパー
+    let isSubmitting = false;
+    window.handlePostItem = async function() {
+      if (isSubmitting) return;
+      const btn = document.getElementById('submitBtn');
+      isSubmitting = true;
+      btn.disabled = true;
+      btn.textContent = '送信中…';
+      try {
+        await postItem();
+      } finally {
+        isSubmitting = false;
+        btn.disabled = false;
+        btn.textContent = '出品する';
+      }
+    };
+
     // タグプレビュー
     document.getElementById('description')?.addEventListener('input', function() {
       const matches = this.value.match(/#[\w\u3040-\u9fff]+/g) || [];
