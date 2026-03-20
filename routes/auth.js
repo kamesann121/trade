@@ -6,33 +6,27 @@ const admin    = require('../config/passport');
 const { body, validationResult } = require('express-validator');
 const User     = require('../models/User');
 const auth     = require('../middleware/auth');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const crypto   = require('crypto');
 
 const makeToken = (user) =>
   jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
 // ── メール送信設定 ────────────────────────────
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000
-});
-
 async function sendMail(to, subject, html) {
   try {
-    const info = await transporter.sendMail({
-      from: `"GameTrade" <${process.env.MAIL_USER}>`,
-      to, subject, html
+    const { data, error } = await resend.emails.send({
+      from: 'GameTrade <onboarding@resend.dev>',
+      to,
+      subject,
+      html
     });
-    console.log('メール送信成功:', info.messageId);
+    if (error) {
+      console.error('メール送信失敗:', error);
+      throw new Error(error.message);
+    }
+    console.log('メール送信成功:', data.id);
   } catch (err) {
     console.error('メール送信失敗:', err.message);
     throw err;
