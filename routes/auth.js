@@ -14,11 +14,16 @@ const makeToken = (user) =>
 
 // ── メール送信設定 ────────────────────────────
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS   // Gmailアプリパスワード
-  }
+    pass: process.env.MAIL_PASS
+  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000
 });
 
 async function sendMail(to, subject, html) {
