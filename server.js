@@ -7,6 +7,7 @@ const connectDB = require('./config/db');
 const path      = require('path');
 
 const app = express();
+app.set('trust proxy', 1); // Render等のプロキシ環境用
 connectDB();
 
 // ── セキュリティヘッダー ──────────────────────
