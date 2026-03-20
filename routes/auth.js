@@ -22,10 +22,16 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendMail(to, subject, html) {
-  await transporter.sendMail({
-    from: `"GameTrade" <${process.env.MAIL_USER}>`,
-    to, subject, html
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: `"GameTrade" <${process.env.MAIL_USER}>`,
+      to, subject, html
+    });
+    console.log('メール送信成功:', info.messageId);
+  } catch (err) {
+    console.error('メール送信失敗:', err.message);
+    throw err;
+  }
 }
 
 // ── 確認コード生成（6桁） ─────────────────────
