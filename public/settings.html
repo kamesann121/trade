@@ -57,94 +57,27 @@
 
     <!-- メール変更セクション -->
     <div class="card" id="emailSection" style="display:none;margin-bottom:20px">
-      <h2 style="font-size:16px;font-weight:900;margin-bottom:20px">📧 メールアドレスを変更</h2>
-
-      <!-- ステップ1：パスワード確認 -->
-      <div id="emailStep1">
-        <p style="font-size:13px;color:var(--text-sub);margin-bottom:16px;line-height:1.7">
-          メールアドレスを変更するには、まず現在のパスワードを入力してください。<br>
-          確認後、新しいメールアドレスに確認メールを送信します。
-        </p>
-        <div class="form-group">
-          <label>新しいメールアドレス</label>
-          <input type="email" id="newEmail" placeholder="new@example.com">
-        </div>
-        <div class="form-group">
-          <label>現在のパスワード</label>
-          <input type="password" id="emailCurrentPassword" placeholder="••••••">
-        </div>
-        <div class="error-msg" id="emailError"></div>
-        <div style="display:flex;gap:10px">
-          <button class="btn-outline btn-sm" style="flex:1;padding:10px" onclick="hideSection('emailSection')">キャンセル</button>
-          <button class="btn-primary" style="flex:2" id="sendEmailVerifyBtn" onclick="sendEmailVerify()">確認メールを送る</button>
-        </div>
-      </div>
-
-      <!-- ステップ2：確認メール送信済み -->
-      <div id="emailStep2" style="display:none">
-        <div style="text-align:center;padding:20px 0">
-          <div style="font-size:48px;margin-bottom:12px">📧</div>
-          <h3 style="font-size:16px;font-weight:900;margin-bottom:8px">確認メールを送信しました</h3>
-          <p id="emailStep2Addr" style="color:var(--accent);font-weight:700;margin:8px 0"></p>
-          <p style="font-size:13px;color:var(--text-sub);line-height:1.7;margin-bottom:20px">
-            上記アドレスに確認リンクを送りました。<br>リンクをクリックするとメールアドレスが変更されます。
-          </p>
-          <button class="btn-outline btn-sm" style="width:100%" onclick="hideSection('emailSection');resetEmailSteps()">閉じる</button>
-        </div>
+      <h2 style="font-size:16px;font-weight:900;margin-bottom:16px">📧 メールアドレスを変更</h2>
+      <p style="font-size:13px;color:var(--text-sub);margin-bottom:20px;line-height:1.7">
+        メールアドレスの変更は運営にお問い合わせください。<br>
+        現在のメールアドレスと新しいメールアドレスをお送りください。
+      </p>
+      <div style="display:flex;gap:10px">
+        <button class="btn-outline btn-sm" style="flex:1;padding:10px" onclick="hideSection('emailSection')">閉じる</button>
+        <a href="/contact.html" class="btn-primary" style="flex:2;display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:8px;font-size:15px;font-weight:700;">運営に連絡する</a>
       </div>
     </div>
 
     <!-- パスワード変更セクション -->
     <div class="card" id="passwordSection" style="display:none;margin-bottom:20px">
-      <h2 style="font-size:16px;font-weight:900;margin-bottom:20px">🔑 パスワードを変更</h2>
-
-      <!-- ステップ1：確認コード送信 -->
-      <div id="pwStep1">
-        <p style="font-size:13px;color:var(--text-sub);margin-bottom:16px;line-height:1.7">
-          登録済みのメールアドレスに確認コードを送信します。
-        </p>
-        <div class="error-msg" id="pwSendError"></div>
-        <div style="display:flex;gap:10px">
-          <button class="btn-outline btn-sm" style="flex:1;padding:10px" onclick="hideSection('passwordSection')">キャンセル</button>
-          <button class="btn-primary" style="flex:2" id="sendCodeBtn" onclick="sendPasswordCode()">確認コードを送る</button>
-        </div>
-      </div>
-
-      <!-- ステップ2：コード入力 -->
-      <div id="pwStep2" style="display:none">
-        <p style="font-size:13px;color:var(--text-sub);margin-bottom:16px;line-height:1.7">
-          メールに届いた6桁のコードを入力してください。
-        </p>
-        <div class="form-group">
-          <label>確認コード（6桁）</label>
-          <input type="text" id="pwCode" placeholder="123456" maxlength="6"
-            style="letter-spacing:6px;font-size:20px;font-weight:700;text-align:center">
-        </div>
-        <div class="form-group">
-          <label>新しいパスワード（6文字以上）</label>
-          <input type="password" id="newPassword" placeholder="••••••">
-        </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label>新しいパスワード（確認）</label>
-          <input type="password" id="newPasswordConfirm" placeholder="••••••">
-        </div>
-        <div class="error-msg" id="pwChangeError" style="margin-top:12px"></div>
-        <div style="display:flex;gap:10px;margin-top:4px">
-          <button class="btn-outline btn-sm" style="flex:1;padding:10px" onclick="resetPwSteps();hideSection('passwordSection')">キャンセル</button>
-          <button class="btn-primary" style="flex:2" id="changePasswordBtn" onclick="changePassword()">パスワードを変更する</button>
-        </div>
-      </div>
-
-      <!-- ステップ3：完了 -->
-      <div id="pwStep3" style="display:none">
-        <div style="text-align:center;padding:20px 0">
-          <div style="font-size:48px;margin-bottom:12px">✅</div>
-          <h3 style="font-size:16px;font-weight:900;margin-bottom:8px">パスワードを変更しました</h3>
-          <p style="font-size:13px;color:var(--text-sub);line-height:1.7;margin-bottom:20px">
-            次回ログインから新しいパスワードをお使いください。
-          </p>
-          <button class="btn-outline btn-sm" style="width:100%" onclick="hideSection('passwordSection');resetPwSteps()">閉じる</button>
-        </div>
+      <h2 style="font-size:16px;font-weight:900;margin-bottom:16px">🔑 パスワードを変更</h2>
+      <p style="font-size:13px;color:var(--text-sub);margin-bottom:20px;line-height:1.7">
+        パスワードの変更は運営にお問い合わせください。<br>
+        メールアドレスと「パスワード変更希望」の旨をお送りください。
+      </p>
+      <div style="display:flex;gap:10px">
+        <button class="btn-outline btn-sm" style="flex:1;padding:10px" onclick="hideSection('passwordSection')">閉じる</button>
+        <a href="/contact.html" class="btn-primary" style="flex:2;display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:8px;font-size:15px;font-weight:700;">運営に連絡する</a>
       </div>
     </div>
   </main>
