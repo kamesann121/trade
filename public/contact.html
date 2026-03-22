@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GameTrade - 運営に連絡</title>
+  <title>GameTrade - 運営へのお問い合わせ</title>
   <link rel="stylesheet" href="/css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
@@ -17,68 +17,133 @@
   <main class="main-auth">
     <div class="auth-box">
 
-      <!-- 送信前 -->
-      <div id="contactForm">
-        <h2 style="font-size:18px;font-weight:900;margin-bottom:8px">📩 運営に連絡</h2>
+      <!-- メール入力画面 -->
+      <div id="emailStep">
+        <h2 style="font-size:18px;font-weight:900;margin-bottom:8px">📩 運営へのお問い合わせ</h2>
         <p style="font-size:13px;color:var(--text-sub);margin-bottom:20px;line-height:1.7">
-          パスワードを忘れた方・その他のお問い合わせはこちらからご連絡ください。
+          パスワードを忘れた方・その他のお問い合わせはこちらからどうぞ。<br>
+          登録済みのメールアドレスを入力するとチャット履歴が引き継がれます。
         </p>
         <div class="form-group">
-          <label>メールアドレス <span class="required">*</span></label>
-          <input type="email" id="contactEmail" placeholder="登録したメールアドレス">
+          <label>メールアドレス</label>
+          <input type="email" id="emailInput" placeholder="example@mail.com"
+            onkeydown="if(event.key==='Enter')startChat()">
         </div>
-        <div class="form-group">
-          <label>お問い合わせ内容 <span class="required">*</span></label>
-          <textarea id="contactMessage" rows="5" placeholder="例：パスワードを忘れました。メールアドレスは〇〇です。"
-            style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;resize:vertical;font-family:inherit;outline:none;"></textarea>
-        </div>
-        <div class="error-msg" id="contactError"></div>
-        <button class="btn-primary" id="contactBtn" onclick="submitContact()">送信する</button>
+        <div class="error-msg" id="emailError"></div>
+        <button class="btn-primary" onclick="startChat()">チャットを開始</button>
         <div style="text-align:center;margin-top:12px">
           <a href="/index.html" style="font-size:13px;color:var(--text-sub);text-decoration:none;">← ログイン画面に戻る</a>
         </div>
       </div>
 
-      <!-- 送信完了 -->
-      <div id="contactDone" style="display:none;text-align:center;padding:20px 0">
-        <div style="font-size:48px;margin-bottom:12px">✅</div>
-        <h3 style="font-size:16px;font-weight:900;margin-bottom:8px">送信しました</h3>
-        <p style="font-size:13px;color:var(--text-sub);line-height:1.7;margin-bottom:20px">
-          お問い合わせを受け付けました。<br>運営が確認次第対応いたします。
-        </p>
-        <a href="/index.html" style="display:block;text-align:center;font-size:13px;color:var(--accent);">← ログイン画面に戻る</a>
+      <!-- チャット画面 -->
+      <div id="chatStep" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h2 style="font-size:16px;font-weight:900;margin:0">📩 運営チャット</h2>
+          <button class="btn-sm btn-outline" onclick="backToEmail()" style="font-size:12px">← 戻る</button>
+        </div>
+        <div id="chatEmail" style="font-size:12px;color:var(--text-sub);margin-bottom:12px"></div>
+
+        <!-- メッセージ一覧 -->
+        <div id="chatMessages"
+          style="height:320px;overflow-y:auto;background:var(--bg);border-radius:8px;padding:12px;
+          display:flex;flex-direction:column;gap:10px;margin-bottom:12px;border:1.5px solid var(--border)">
+          <div style="text-align:center;color:var(--text-sub);font-size:13px">読み込み中…</div>
+        </div>
+
+        <!-- 更新ボタン -->
+        <button class="btn-sm btn-outline" style="width:100%;margin-bottom:10px" onclick="loadMessages()">
+          🔄 返信を確認する
+        </button>
+
+        <!-- 入力欄 -->
+        <div style="display:flex;gap:8px">
+          <input type="text" id="msgInput" placeholder="メッセージを入力…"
+            style="flex:1;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);
+            border-radius:8px;color:var(--text);font-size:14px;outline:none;"
+            onkeydown="if(event.key==='Enter')sendMessage()">
+          <button class="btn-sm btn-accent" style="padding:10px 16px" onclick="sendMessage()">送信</button>
+        </div>
+        <div class="error-msg" id="msgError" style="margin-top:8px"></div>
       </div>
 
     </div>
   </main>
 
   <script>
-    async function submitContact() {
-      const email   = document.getElementById('contactEmail').value.trim();
-      const message = document.getElementById('contactMessage').value.trim();
-      const errEl   = document.getElementById('contactError');
+    let currentEmail = '';
+
+    async function startChat() {
+      const email = document.getElementById('emailInput').value.trim();
+      const errEl = document.getElementById('emailError');
       errEl.textContent = '';
+      if (!email) { errEl.textContent = 'メールアドレスを入力してください'; return; }
 
-      if (!email || !message) { errEl.textContent = '全て入力してください'; return; }
+      currentEmail = email;
+      document.getElementById('emailStep').style.display = 'none';
+      document.getElementById('chatStep').style.display = '';
+      document.getElementById('chatEmail').textContent = email;
+      await loadMessages();
+    }
 
-      const btn = document.getElementById('contactBtn');
-      btn.disabled = true; btn.textContent = '送信中…';
+    async function loadMessages() {
+      const msgs = document.getElementById('chatMessages');
+      try {
+        const res  = await fetch(`/api/contact?email=${encodeURIComponent(currentEmail)}`);
+        const data = await res.json();
 
+        if (!data.messages || !data.messages.length) {
+          msgs.innerHTML = '<div style="text-align:center;color:var(--text-sub);font-size:13px;padding:20px">まだメッセージはありません。<br>下から最初のメッセージを送ってください。</div>';
+          return;
+        }
+
+        msgs.innerHTML = data.messages.map(m => `
+          <div style="display:flex;flex-direction:column;align-items:${m.isAdmin ? 'flex-start' : 'flex-end'}">
+            <div style="font-size:11px;color:var(--text-sub);margin-bottom:3px">
+              ${m.isAdmin ? '🛡️ 運営' : '👤 あなた'}
+            </div>
+            <div style="max-width:80%;padding:10px 14px;
+              border-radius:${m.isAdmin ? '12px 12px 12px 4px' : '12px 12px 4px 12px'};
+              font-size:13px;line-height:1.6;word-break:break-word;
+              background:${m.isAdmin ? 'var(--card)' : 'rgba(124,92,252,0.2)'};
+              border:1px solid ${m.isAdmin ? 'var(--border)' : 'transparent'}">
+              ${m.text}
+            </div>
+            <div style="font-size:10px;color:var(--text-sub);margin-top:3px">
+              ${new Date(m.createdAt).toLocaleString('ja-JP',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+            </div>
+          </div>`).join('');
+        msgs.scrollTop = msgs.scrollHeight;
+      } catch {
+        msgs.innerHTML = '<div style="text-align:center;color:var(--danger);font-size:13px">読み込みに失敗しました</div>';
+      }
+    }
+
+    async function sendMessage() {
+      const text  = document.getElementById('msgInput').value.trim();
+      const errEl = document.getElementById('msgError');
+      errEl.textContent = '';
+      if (!text) return;
+
+      document.getElementById('msgInput').value = '';
       try {
         const res  = await fetch('/api/contact', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, message })
+          body: JSON.stringify({ email: currentEmail, message: text })
         });
         const data = await res.json();
         if (!res.ok) { errEl.textContent = data.message; return; }
-        document.getElementById('contactForm').style.display = 'none';
-        document.getElementById('contactDone').style.display = '';
+        await loadMessages();
       } catch {
         errEl.textContent = '通信エラーが発生しました';
-      } finally {
-        btn.disabled = false; btn.textContent = '送信する';
       }
+    }
+
+    function backToEmail() {
+      currentEmail = '';
+      document.getElementById('chatStep').style.display = 'none';
+      document.getElementById('emailStep').style.display = '';
     }
   </script>
 </body>
