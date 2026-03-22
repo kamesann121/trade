@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="google-site-verification" content="0sECZVdpl0nbxR2ybA0rgRe8kSUjpgGI2EhF0BLaWmU" />
   <title>GameTrade - ゲーム交換サイト</title>
   <link rel="stylesheet" href="/css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -57,7 +56,7 @@
           <input type="password" id="loginPassword" placeholder="••••••">
         </div>
         <div style="text-align:right;margin-top:-8px;margin-bottom:4px">
-          <a href="#" onclick="showForgotPassword()" style="font-size:12px;color:var(--text-sub);text-decoration:none;">
+          <a href="/contact.html" style="font-size:12px;color:var(--text-sub);text-decoration:none;">
             パスワードを忘れた場合
           </a>
         </div>
@@ -110,56 +109,6 @@
             onclick="backToRegister()">戻る</button>
         </div>
       </div>
-
-      <!-- パスワードリセット -->
-      <div id="forgotPasswordForm" style="display:none">
-        <div id="forgotStep1">
-          <h3 style="font-size:15px;font-weight:900;margin-bottom:8px">🔑 パスワードをリセット</h3>
-          <p style="font-size:13px;color:var(--text-sub);margin-bottom:16px;line-height:1.7">
-            登録済みのメールアドレスを入力してください。<br>確認コードを送信します。
-          </p>
-          <div class="form-group">
-            <label>メールアドレス</label>
-            <input type="email" id="resetEmail" placeholder="example@mail.com">
-          </div>
-          <div class="error-msg" id="forgotError"></div>
-          <button class="btn-primary" id="sendResetBtn" onclick="sendResetCode()">確認コードを送る</button>
-          <button class="btn-sm btn-outline" style="width:100%;margin-top:10px" onclick="backToLogin()">戻る</button>
-        </div>
-        <div id="forgotStep2" style="display:none">
-          <h3 style="font-size:15px;font-weight:900;margin-bottom:8px">📧 コードを入力</h3>
-          <p style="font-size:13px;color:var(--text-sub);margin-bottom:16px;line-height:1.7">
-            メールに届いた6桁のコードと新しいパスワードを入力してください。
-          </p>
-          <div class="form-group">
-            <label>確認コード（6桁）</label>
-            <input type="text" id="resetCode" placeholder="123456" maxlength="6"
-              style="letter-spacing:6px;font-size:20px;font-weight:700;text-align:center">
-          </div>
-          <div class="form-group">
-            <label>新しいパスワード（6文字以上）</label>
-            <input type="password" id="resetNewPassword" placeholder="••••••">
-          </div>
-          <div class="form-group">
-            <label>新しいパスワード（確認）</label>
-            <input type="password" id="resetNewPasswordConfirm" placeholder="••••••">
-          </div>
-          <div class="error-msg" id="forgotStep2Error"></div>
-          <button class="btn-primary" id="resetPasswordBtn" onclick="resetPassword()">パスワードを変更する</button>
-          <button class="btn-sm btn-outline" style="width:100%;margin-top:10px" onclick="backToLogin()">戻る</button>
-        </div>
-        <div id="forgotStep3" style="display:none">
-          <div style="text-align:center;padding:20px 0">
-            <div style="font-size:48px;margin-bottom:12px">✅</div>
-            <h3 style="font-size:16px;font-weight:900;margin-bottom:8px">パスワードを変更しました</h3>
-            <p style="font-size:13px;color:var(--text-sub);line-height:1.7;margin-bottom:20px">
-              新しいパスワードでログインしてください。
-            </p>
-            <button class="btn-primary" onclick="backToLogin()">ログイン画面へ</button>
-          </div>
-        </div>
-      </div>
-
     </section>
   </main>
 
@@ -209,86 +158,6 @@
       document.getElementById('emailVerifyForm').style.display = 'none';
       document.getElementById('tabLogin').classList.toggle('active', isLogin);
       document.getElementById('tabRegister').classList.toggle('active', !isLogin);
-    };
-
-    // ── パスワード忘れ ────────────────────────
-    window.showForgotPassword = () => {
-      document.getElementById('loginForm').style.display       = 'none';
-      document.getElementById('registerForm').style.display    = 'none';
-      document.getElementById('emailVerifyForm').style.display = 'none';
-      document.getElementById('forgotPasswordForm').style.display = '';
-      document.getElementById('tabLogin').classList.remove('active');
-      document.getElementById('tabRegister').classList.remove('active');
-    };
-
-    window.backToLogin = () => {
-      document.getElementById('forgotPasswordForm').style.display = 'none';
-      document.getElementById('forgotStep1').style.display = '';
-      document.getElementById('forgotStep2').style.display = 'none';
-      document.getElementById('forgotStep3').style.display = 'none';
-      document.getElementById('resetEmail').value = '';
-      document.getElementById('resetCode').value = '';
-      document.getElementById('resetNewPassword').value = '';
-      document.getElementById('resetNewPasswordConfirm').value = '';
-      document.getElementById('forgotError').textContent = '';
-      document.getElementById('forgotStep2Error').textContent = '';
-      switchTab('login');
-    };
-
-    window.sendResetCode = async () => {
-      const email = document.getElementById('resetEmail').value.trim();
-      const errEl = document.getElementById('forgotError');
-      errEl.textContent = '';
-      if (!email) { errEl.textContent = 'メールアドレスを入力してください'; return; }
-
-      const btn = document.getElementById('sendResetBtn');
-      btn.disabled = true; btn.textContent = '送信中…';
-      try {
-        const res  = await fetch('/api/auth/send-reset-code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
-        const data = await res.json();
-        if (!res.ok) { errEl.textContent = data.message; return; }
-        document.getElementById('forgotStep1').style.display = 'none';
-        document.getElementById('forgotStep2').style.display = '';
-      } catch {
-        errEl.textContent = '通信エラーが発生しました';
-      } finally {
-        btn.disabled = false; btn.textContent = '確認コードを送る';
-      }
-    };
-
-    window.resetPassword = async () => {
-      const code    = document.getElementById('resetCode').value.trim();
-      const newPw   = document.getElementById('resetNewPassword').value;
-      const confPw  = document.getElementById('resetNewPasswordConfirm').value;
-      const email   = document.getElementById('resetEmail').value.trim();
-      const errEl   = document.getElementById('forgotStep2Error');
-      errEl.textContent = '';
-
-      if (!code || !newPw || !confPw) { errEl.textContent = '全て入力してください'; return; }
-      if (newPw.length < 6)           { errEl.textContent = 'パスワードは6文字以上にしてください'; return; }
-      if (newPw !== confPw)           { errEl.textContent = 'パスワードが一致しません'; return; }
-
-      const btn = document.getElementById('resetPasswordBtn');
-      btn.disabled = true; btn.textContent = '変更中…';
-      try {
-        const res  = await fetch('/api/auth/reset-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, code, newPassword: newPw })
-        });
-        const data = await res.json();
-        if (!res.ok) { errEl.textContent = data.message; return; }
-        document.getElementById('forgotStep2').style.display = 'none';
-        document.getElementById('forgotStep3').style.display = '';
-      } catch {
-        errEl.textContent = '通信エラーが発生しました';
-      } finally {
-        btn.disabled = false; btn.textContent = 'パスワードを変更する';
-      }
     };
 
     // ── 戻る ──────────────────────────────────
