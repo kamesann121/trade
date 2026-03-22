@@ -70,6 +70,7 @@ app.use('/api/messages',      globalLimiter, require('./routes/messages'));
 app.use('/api/reviews',       globalLimiter, require('./routes/reviews'));
 app.use('/api/notifications', globalLimiter, require('./routes/notifications'));
 app.use('/api/admin',                        require('./routes/admin'));
+app.use('/api/contact',                      require('./routes/contact'));
 
 // ── 管理者パネル ─────────────────────────────
 app.get('/admin', (req, res) => {
