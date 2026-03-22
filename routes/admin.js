@@ -352,6 +352,20 @@ router.put('/contacts/:id/read', adminAuth, async (req, res) => {
   } catch { res.status(500).json({ message: 'サーバーエラー' }); }
 });
 
+// ── お問い合わせに返信 ────────────────────────
+router.post('/contacts/:id/reply', adminAuth, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text?.trim()) return res.status(400).json({ message: 'メッセージを入力してください' });
+    const contact = await Contact.findById(req.params.id);
+    if (!contact) return res.status(404).json({ message: '見つかりません' });
+    contact.messages.push({ text: text.trim(), isAdmin: true });
+    contact.read = true;
+    await contact.save();
+    res.json({ message: '返信しました' });
+  } catch { res.status(500).json({ message: 'サーバーエラー' }); }
+});
+
 // ── お問い合わせ削除 ──────────────────────────
 router.delete('/contacts/:id', adminAuth, async (req, res) => {
   try {
