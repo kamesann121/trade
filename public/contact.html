@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameTrade - 運営に連絡</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="/index.html" class="logo">🎮 GameTrade</a>
+    </div>
+  </header>
+
+  <main class="main-auth">
+    <div class="auth-box">
+
+      <!-- 送信前 -->
+      <div id="contactForm">
+        <h2 style="font-size:18px;font-weight:900;margin-bottom:8px">📩 運営に連絡</h2>
+        <p style="font-size:13px;color:var(--text-sub);margin-bottom:20px;line-height:1.7">
+          パスワードを忘れた方・その他のお問い合わせはこちらからご連絡ください。
+        </p>
+        <div class="form-group">
+          <label>メールアドレス <span class="required">*</span></label>
+          <input type="email" id="contactEmail" placeholder="登録したメールアドレス">
+        </div>
+        <div class="form-group">
+          <label>お問い合わせ内容 <span class="required">*</span></label>
+          <textarea id="contactMessage" rows="5" placeholder="例：パスワードを忘れました。メールアドレスは〇〇です。"
+            style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;resize:vertical;font-family:inherit;outline:none;"></textarea>
+        </div>
+        <div class="error-msg" id="contactError"></div>
+        <button class="btn-primary" id="contactBtn" onclick="submitContact()">送信する</button>
+        <div style="text-align:center;margin-top:12px">
+          <a href="/index.html" style="font-size:13px;color:var(--text-sub);text-decoration:none;">← ログイン画面に戻る</a>
+        </div>
+      </div>
+
+      <!-- 送信完了 -->
+      <div id="contactDone" style="display:none;text-align:center;padding:20px 0">
+        <div style="font-size:48px;margin-bottom:12px">✅</div>
+        <h3 style="font-size:16px;font-weight:900;margin-bottom:8px">送信しました</h3>
+        <p style="font-size:13px;color:var(--text-sub);line-height:1.7;margin-bottom:20px">
+          お問い合わせを受け付けました。<br>運営が確認次第対応いたします。
+        </p>
+        <a href="/index.html" style="display:block;text-align:center;font-size:13px;color:var(--accent);">← ログイン画面に戻る</a>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    async function submitContact() {
+      const email   = document.getElementById('contactEmail').value.trim();
+      const message = document.getElementById('contactMessage').value.trim();
+      const errEl   = document.getElementById('contactError');
+      errEl.textContent = '';
+
+      if (!email || !message) { errEl.textContent = '全て入力してください'; return; }
+
+      const btn = document.getElementById('contactBtn');
+      btn.disabled = true; btn.textContent = '送信中…';
+
+      try {
+        const res  = await fetch('/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, message })
+        });
+        const data = await res.json();
+        if (!res.ok) { errEl.textContent = data.message; return; }
+        document.getElementById('contactForm').style.display = 'none';
+        document.getElementById('contactDone').style.display = '';
+      } catch {
+        errEl.textContent = '通信エラーが発生しました';
+      } finally {
+        btn.disabled = false; btn.textContent = '送信する';
+      }
+    }
+  </script>
+</body>
+</html>
