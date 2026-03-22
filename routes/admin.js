@@ -7,6 +7,7 @@ const Item    = require('../models/Item');
 const ExchangeRequest = require('../models/ExchangeRequest');
 const Message = require('../models/Message');
 const BadWord = require('../models/BadWord');
+const Contact = require('../models/Contact');
 const { invalidateCache } = require('../middleware/filterBadWords');
 
 // ── ユーザー一覧・検索 ────────────────────────
@@ -332,6 +333,61 @@ router.delete('/badwords/:id', adminAuth, async (req, res) => {
     await BadWord.findByIdAndDelete(req.params.id);
     invalidateCache();
     res.json({ message: '削除しました' });
+  } catch { res.status(500).json({ message: 'サーバーエラー' }); }
+});
+
+// ── お問い合わせ一覧 ──────────────────────────
+router.get('/contacts', adminAuth, async (req, res) => {
+  try {
+    const contacts = await Contact.find().sort({ createdAt: -1 });
+    res.json(contacts);
+  } catch { res.status(500).json({ message: 'サーバーエラー' }); }
+});
+
+// ── お問い合わせ既読 ──────────────────────────
+router.put('/contacts/:id/read', adminAuth, async (req, res) => {
+  try {
+    await Contact.findByIdAndUpdate(req.params.id, { read: true });
+    res.json({ message: '既読にしました' });
+  } catch { res.status(500).json({ message: 'サーバーエラー' }); }
+});
+
+// ── お問い合わせ削除 ──────────────────────────
+router.delete('/contacts/:id', adminAuth, async (req, res) => {
+  try {
+    await Contact.findByIdAndDelete(req.params.id);
+    res.json({ message: '削除しました' });
+  } catch { res.status(500).json({ message: 'サーバーエラー' }); }
+});
+
+// ── ユーザーのパスワード変更（管理者用） ──────
+router.put('/users/:id/password', adminAuth, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6)
+      return res.status(400).json({ message: 'パスワードは6文字以上にしてください' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'ユーザーが見つかりません' });
+    user.password = newPassword;
+    await user.save();
+    res.json({ message: 'パスワードを変更しました' });
+  } catch { res.status(500).json({ message: 'サーバーエラー' }); }
+});
+
+// ── ユーザーのメールアドレス変更（管理者用） ──
+router.put('/users/:id/email', adminAuth, async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    if (!newEmail) return res.status(400).json({ message: 'メールアドレスを入力してください' });
+    const existing = await User.findOne({ email: newEmail.toLowerCase() });
+    if (existing) return res.status(400).json({ message: 'このメールアドレスはすでに使われています' });
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { email: newEmail.toLowerCase() },
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ message: 'ユーザーが見つかりません' });
+    res.json({ message: 'メールアドレスを変更しました' });
   } catch { res.status(500).json({ message: 'サーバーエラー' }); }
 });
 
